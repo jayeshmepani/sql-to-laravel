@@ -1,0 +1,1114 @@
+/* SQL to Laravel Converter — Modern UI */
+/* Developed by Jayesh Mepani */
+/* Standards: modern-web-2026 | web-standards (WCAG 2.2 AA) */
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+/* ============================================================
+   @layer architecture — explicit cascade order
+   ============================================================ */
+@layer reset, tokens, base, layout, components, utilities;
+
+/* ============================================================
+   LAYER: reset
+   ============================================================ */
+@layer reset {
+
+    *,
+    *::before,
+    *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+}
+
+/* ============================================================
+   LAYER: tokens — design system via custom properties
+   ============================================================ */
+@layer tokens {
+    :root {
+        /* Brand palette in oklch for perceptually uniform color */
+        --color-primary: oklch(76% 0.14 186);
+        /* #00c7b7 equivalent */
+        --color-primary-hover: oklch(71% 0.14 186);
+        /* #00b5a6 equivalent */
+        --color-accent: oklch(52% 0.22 263);
+        /* #4361ee equivalent */
+        --color-danger: oklch(59% 0.22 27);
+        /* #ef4444 equivalent */
+
+        /* Semantic surface tokens — light mode */
+        --bg-page: oklch(98% 0 0);
+        --bg-surface: oklch(100% 0 0);
+        --bg-subtle: oklch(97% 0 0);
+
+        --text-main: oklch(20% 0 0);
+        --text-muted: oklch(50% 0 0);
+        --text-inverse: oklch(100% 0 0);
+
+        --border: oklch(90% 0 0);
+
+        /* Code surface */
+        --bg-code: oklch(16% 0.01 264);
+        --bg-code-header: oklch(21% 0.01 264);
+        --text-code: oklch(95% 0 0);
+        --text-code-dim: oklch(62% 0 0);
+
+        /* Shadows — expressed with oklch-compatible form */
+        --shadow-sm: 0 1px 2px 0 oklch(0% 0 0 / 0.05);
+        --shadow-md: 0 4px 6px -1px oklch(0% 0 0 / 0.1),
+            0 2px 4px -1px oklch(0% 0 0 / 0.06);
+        --shadow-lg: 0 10px 15px -3px oklch(0% 0 0 / 0.1),
+            0 4px 6px -2px oklch(0% 0 0 / 0.05);
+
+        /* Glow effects */
+        --glow-primary: 0 4px 14px 0 oklch(76% 0.14 186 / 0.39);
+        --glow-primary-hover: 0 6px 20px oklch(76% 0.14 186 / 0.23);
+
+        /* Spacing & shape */
+        --radius: 1rem;
+        --radius-sm: 0.75rem;
+        --radius-pill: 100px;
+
+        /* Motion */
+        --ease-out-cubic: cubic-bezier(0.4, 0, 0.2, 1);
+        --duration-fast: 200ms;
+        --duration-base: 300ms;
+
+        color-scheme: light dark;
+    }
+
+    /* Dark mode via media query — no JS required */
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --bg-page: oklch(12% 0 0);
+            --bg-surface: oklch(16% 0.01 264);
+            --bg-subtle: oklch(20% 0.01 264);
+
+            --text-main: oklch(93% 0 0);
+            --text-muted: oklch(62% 0 0);
+
+            --border: oklch(28% 0.01 264);
+
+            --shadow-sm: 0 1px 2px 0 oklch(0% 0 0 / 0.3);
+            --shadow-md: 0 4px 6px -1px oklch(0% 0 0 / 0.4),
+                0 2px 4px -1px oklch(0% 0 0 / 0.3);
+            --shadow-lg: 0 10px 15px -3px oklch(0% 0 0 / 0.4),
+                0 4px 6px -2px oklch(0% 0 0 / 0.3);
+        }
+    }
+}
+
+/* ============================================================
+   LAYER: base
+   ============================================================ */
+@layer base {
+    :root {
+        scroll-behavior: smooth;
+
+        /* Respect user motion preferences */
+        @media (prefers-reduced-motion: reduce) {
+            scroll-behavior: auto;
+        }
+    }
+
+    body {
+        font-family: 'Poppins', system-ui, sans-serif;
+        background-color: var(--bg-page);
+        color: var(--text-main);
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    /* Skip link — must be first focusable element */
+    .skip-link {
+        position: absolute;
+        inset-inline-start: 0.5rem;
+        inset-block-start: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: var(--color-primary);
+        color: var(--text-inverse);
+        font-weight: 600;
+        border-radius: var(--radius-sm);
+        z-index: 999;
+        transform: translateY(-200%);
+        transition: transform var(--duration-fast) var(--ease-out-cubic);
+
+        &:focus-visible {
+            transform: translateY(0);
+        }
+    }
+
+    /* Visually hidden — accessible text off-screen */
+    .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    /* Native hidden attribute support */
+    [hidden] {
+        display: none !important;
+    }
+
+    /* Focus styles — keyboard only, never removes outline */
+    :focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: 3px;
+        border-radius: 3px;
+    }
+
+    a {
+        color: var(--color-primary);
+
+        &:hover {
+            color: var(--color-primary-hover);
+        }
+    }
+}
+
+/* ============================================================
+   LAYER: layout
+   ============================================================ */
+@layer layout {
+    .container {
+        max-width: 1200px;
+        margin-inline: auto;
+        padding-inline: 1.5rem;
+        padding-block: 2rem;
+    }
+}
+
+/* ============================================================
+   LAYER: components
+   ============================================================ */
+@layer components {
+
+    /* ----------------------------------------------------------
+       Navigation
+    ---------------------------------------------------------- */
+    .navbar {
+        position: sticky;
+        inset-block-start: 0;
+        z-index: 100;
+        background: color-mix(in oklch, var(--bg-surface) 80%, transparent);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-block-end: 1px solid var(--border);
+        padding-block: 1rem;
+        transition: padding var(--duration-base) var(--ease-out-cubic),
+            box-shadow var(--duration-base) var(--ease-out-cubic);
+
+        &.scrolled {
+            padding-block: 0.75rem;
+            box-shadow: var(--shadow-md);
+        }
+    }
+
+    .nav-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-block: 0;
+        /* override container block padding */
+    }
+
+    .logo {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 700;
+        font-size: 1.25rem;
+        color: var(--color-primary);
+        text-decoration: none;
+        white-space: nowrap;
+        transition: opacity var(--duration-fast) var(--ease-out-cubic);
+
+        &:hover {
+            opacity: 0.85;
+            color: var(--color-primary);
+        }
+    }
+
+    .logo-icon {
+        display: block;
+        flex-shrink: 0;
+        inline-size: 24px;
+        block-size: 24px;
+    }
+
+    .logo-text {
+        display: block;
+        line-height: 1;
+    }
+
+    .nav-links {
+        display: flex;
+        list-style: none;
+        gap: 2rem;
+    }
+
+    .nav-link {
+        text-decoration: none;
+        color: var(--text-main);
+        font-weight: 500;
+        font-size: 0.95rem;
+        transition: color var(--duration-fast) var(--ease-out-cubic);
+
+        &:hover {
+            color: var(--color-primary);
+        }
+    }
+
+    .mobile-toggle {
+        display: none;
+        background: none;
+        border: none;
+        color: var(--text-main);
+        cursor: pointer;
+        padding: 0.5rem;
+        border-radius: var(--radius-sm);
+        transition: background var(--duration-fast) var(--ease-out-cubic);
+        /* Meets 44×44px tap target */
+        min-inline-size: 44px;
+        min-block-size: 44px;
+        align-items: center;
+        justify-content: center;
+
+        &:hover {
+            background: var(--bg-subtle);
+        }
+    }
+
+    /* ----------------------------------------------------------
+       Header
+    ---------------------------------------------------------- */
+    .app-header {
+        text-align: center;
+        padding-block: 4rem 2rem;
+    }
+
+    .app-title {
+        font-size: clamp(1.75rem, 5vw, 2.5rem);
+        font-weight: 800;
+        /* Gradient text — -webkit- prefixes still required for broad support */
+        background: linear-gradient(135deg, var(--text-main), var(--color-primary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-block-end: 1rem;
+    }
+
+    .app-subtitle {
+        color: var(--text-muted);
+        font-size: 1.1rem;
+        max-inline-size: 700px;
+        margin-inline: auto;
+    }
+
+    /* ----------------------------------------------------------
+       Cards
+    ---------------------------------------------------------- */
+    .card {
+        background: var(--bg-surface);
+        border-radius: var(--radius);
+        padding: 2rem;
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--border);
+        margin-block-end: 2rem;
+        transition: box-shadow var(--duration-base) var(--ease-out-cubic);
+
+        /* Scroll-driven reveal */
+        @media (prefers-reduced-motion: no-preference) {
+            animation: card-reveal linear both;
+            animation-timeline: view();
+            animation-range: entry 0% entry 25%;
+        }
+    }
+
+    @keyframes card-reveal {
+        from {
+            opacity: 0;
+            translate: 0 1.5rem;
+        }
+
+        to {
+            opacity: 1;
+            translate: 0 0;
+        }
+    }
+
+    .section-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-main);
+        margin-block-end: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    /* ----------------------------------------------------------
+       Upload area
+    ---------------------------------------------------------- */
+    .upload-zone {
+        border: 2px dashed var(--border);
+        border-radius: var(--radius);
+        padding: 3rem 2rem;
+        text-align: center;
+        cursor: pointer;
+        transition: border-color var(--duration-fast) var(--ease-out-cubic),
+            background var(--duration-fast) var(--ease-out-cubic);
+
+        &:hover,
+        &.dragover {
+            border-color: var(--color-primary);
+            background: color-mix(in oklch, var(--color-primary) 4%, transparent);
+        }
+    }
+
+    .upload-icon {
+        inline-size: 64px;
+        block-size: 64px;
+        color: var(--color-primary);
+        margin-block-end: 1.5rem;
+    }
+
+    .upload-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-block-end: 0.5rem;
+        color: var(--text-main);
+    }
+
+    .upload-subtitle {
+        color: var(--text-muted);
+        margin-block-end: 1.5rem;
+    }
+
+    /* ----------------------------------------------------------
+       File list
+    ---------------------------------------------------------- */
+    .file-info {
+        margin-block-start: 1.5rem;
+        border-block-start: 1px solid var(--border);
+        padding-block-start: 1.5rem;
+    }
+
+    .file-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-block-end: 1rem;
+    }
+
+    .file-item {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        background: var(--bg-subtle);
+        border-radius: var(--radius-sm);
+        margin-block-end: 0.75rem;
+        gap: 1rem;
+    }
+
+    .remove-btn {
+        margin-inline-start: auto;
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 0.5rem;
+        border-radius: 0.5rem;
+        /* Min tap target */
+        min-inline-size: 44px;
+        min-block-size: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: color var(--duration-fast) var(--ease-out-cubic),
+            background var(--duration-fast) var(--ease-out-cubic);
+
+        &:hover {
+            color: var(--color-danger);
+            background: color-mix(in oklch, var(--color-danger) 10%, transparent);
+        }
+    }
+
+    /* ----------------------------------------------------------
+       Options / Fieldset
+    ---------------------------------------------------------- */
+    .options-fieldset {
+        border: none;
+        padding: 0;
+        margin-block-end: 1.5rem;
+    }
+
+    .options-legend {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--text-muted);
+        margin-block-end: 1rem;
+    }
+
+    .options-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .option-card {
+        position: relative;
+        cursor: pointer;
+
+        & input {
+            /* Visually hidden but still keyboard-accessible */
+            position: absolute;
+            opacity: 0;
+            inline-size: 100%;
+            block-size: 100%;
+            inset: 0;
+            margin: 0;
+            cursor: pointer;
+            z-index: 1;
+        }
+    }
+
+    .option-label {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        border: 2px solid var(--border);
+        border-radius: var(--radius);
+        transition: border-color var(--duration-fast) var(--ease-out-cubic),
+            background var(--duration-fast) var(--ease-out-cubic),
+            color var(--duration-fast) var(--ease-out-cubic);
+        block-size: 100%;
+
+        .option-card input:checked+& {
+            border-color: var(--color-primary);
+            background: color-mix(in oklch, var(--color-primary) 5%, transparent);
+            color: var(--color-primary);
+        }
+
+        .option-card input:focus-visible+& {
+            outline: 2px solid var(--color-primary);
+            outline-offset: 3px;
+            border-radius: var(--radius);
+        }
+    }
+
+    .option-icon {
+        inline-size: 32px;
+        block-size: 32px;
+        margin-block-end: 1rem;
+    }
+
+    /* ----------------------------------------------------------
+       Version selector wrapper
+    ---------------------------------------------------------- */
+    .version-selector {
+        margin-block-end: 1.5rem;
+
+        & label {
+            display: block;
+            font-weight: 500;
+            margin-block-end: 0.5rem;
+            font-size: 0.95rem;
+        }
+    }
+
+    /* ----------------------------------------------------------
+       Custom select — base-select (Chrome 134+ / Edge 134+)
+       Progressive enhancement: falls back to appearance:none
+       styling on older browsers gracefully.
+    ---------------------------------------------------------- */
+
+    /* Fallback baseline for all browsers */
+    .custom-select {
+        inline-size: 100%;
+        max-inline-size: 360px;
+        font-family: inherit;
+        font-size: 0.95rem;
+        color: var(--text-main);
+        cursor: pointer;
+        border-color: transparent;
+
+        &:is(:active, :hover) {
+            background: none;
+            color: none;
+        }
+    }
+
+    /* ---- Progressive enhancement: base-select opt-in ---- */
+    @supports (appearance: base-select) {
+
+        .custom-select,
+        .custom-select::picker(select) {
+            appearance: base-select;
+        }
+
+        /* The trigger button (collapsed state) */
+        .custom-select button {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            inline-size: 100%;
+            max-inline-size: 360px;
+            padding: 0.75rem 1rem;
+            background: var(--bg-surface);
+            color: var(--text-main);
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: border-color var(--duration-fast) var(--ease-out-cubic),
+                box-shadow var(--duration-fast) var(--ease-out-cubic),
+                background var(--duration-fast) var(--ease-out-cubic);
+            min-block-size: 48px;
+        }
+
+        .custom-select button:hover {
+            border-color: var(--color-primary);
+            background: color-mix(in oklch, var(--color-primary) 4%, var(--bg-surface));
+        }
+
+        .custom-select:focus button,
+        .custom-select button:focus-visible {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 4px color-mix(in oklch, var(--color-primary) 15%, transparent);
+        }
+
+        /* Chevron arrow — rotate when open */
+        .custom-select .select-arrow {
+            flex-shrink: 0;
+            color: var(--text-muted);
+            transition: rotate var(--duration-fast) var(--ease-out-cubic),
+                color var(--duration-fast) var(--ease-out-cubic);
+        }
+
+        .custom-select:open .select-arrow {
+            rotate: -180deg;
+            color: var(--color-primary);
+        }
+
+        /* Open-state trigger — keep border clean, no bottom radius change needed
+           since picker floats in top-layer (no visual join to button) */
+        .custom-select:open button {
+            border-color: var(--color-primary);
+            background: color-mix(in oklch, var(--color-primary) 4%, var(--bg-surface));
+        }
+
+        /* selectedcontent — what shows in the closed button */
+        selectedcontent {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex: 1;
+            min-inline-size: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Hide SVG icons inside selectedcontent (show text only in button) */
+        selectedcontent .opt-icon {
+            display: none;
+        }
+
+        /* The picker dropdown — single clean border, no double-line */
+        .custom-select::picker(select) {
+            background: var(--bg-surface);
+            /* Single border only — removed the box-shadow ring that caused double lines */
+            border: 1.5px solid var(--color-primary);
+            border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-lg);
+            /* Padding creates the gap around options; gap between options via margin */
+            padding: 0.375rem;
+            inline-size: anchor-size(inline);
+            min-inline-size: 240px;
+            /* margin-top separates picker from trigger button visually */
+            margin-block-start: 0.25rem;
+            overflow: hidden;
+
+            /* Animate open/close via @starting-style + top-layer */
+            @media (prefers-reduced-motion: no-preference) {
+                transition: opacity var(--duration-fast) var(--ease-out-cubic),
+                    translate var(--duration-fast) var(--ease-out-cubic),
+                    display var(--duration-fast) var(--ease-out-cubic) allow-discrete;
+
+                @starting-style {
+                    opacity: 0;
+                    translate: 0 -0.5rem;
+                }
+            }
+        }
+
+        .custom-select:not(:open)::picker(select) {
+            opacity: 0;
+            translate: 0 -0.5rem;
+        }
+
+        /* Individual options — gap between items via margin-block-end */
+        .custom-select option {
+            display: flex;
+            align-items: center;
+            gap: 0.625rem;
+            padding: 0.625rem 0.875rem;
+            margin-block-end: 0.125rem;
+            /* gap between options — no double lines */
+            border-radius: 0.5rem;
+            font-size: 0.95rem;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: background var(--duration-fast) var(--ease-out-cubic),
+                color var(--duration-fast) var(--ease-out-cubic);
+            user-select: none;
+        }
+
+        /* Remove margin after the last option */
+        .custom-select option:last-of-type {
+            margin-block-end: 0;
+        }
+
+        .custom-select option:hover {
+            background: color-mix(in oklch, var(--color-primary) 8%, var(--bg-surface));
+            color: var(--color-primary);
+        }
+
+        /* Selected (checked) option */
+        .custom-select option:checked {
+            background: color-mix(in oklch, var(--color-primary) 12%, var(--bg-surface));
+            color: var(--color-primary);
+            font-weight: 600;
+        }
+
+        /* Default checkmark — replace with our own styling */
+        .custom-select option::checkmark {
+            display: none;
+        }
+
+        /* Dot accent on selected option */
+        .custom-select option:checked::before {
+            content: '';
+            display: inline-flex;
+            inline-size: 6px;
+            block-size: 6px;
+            border-radius: 50%;
+            background: var(--color-primary);
+            flex-shrink: 0;
+        }
+
+        /* Option icon */
+        .custom-select option .opt-icon {
+            flex-shrink: 0;
+            color: var(--text-muted);
+        }
+
+        .custom-select option:hover .opt-icon,
+        .custom-select option:checked .opt-icon {
+            color: var(--color-primary);
+        }
+
+        /* Picker icon (native arrow in button) — hidden, we BYO arrow */
+        .custom-select::picker-icon {
+            display: none;
+        }
+    }
+
+    /* ---- Fallback for non-supporting browsers ---- */
+    @supports not (appearance: base-select) {
+        .custom-select {
+            padding: 0.75rem 2.5rem 0.75rem 1rem;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            background-color: var(--bg-surface);
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            cursor: pointer;
+            transition: border-color var(--duration-fast) var(--ease-out-cubic),
+                box-shadow var(--duration-fast) var(--ease-out-cubic);
+
+            &:focus-visible {
+                outline: none;
+                border-color: var(--color-primary);
+                box-shadow: 0 0 0 4px color-mix(in oklch, var(--color-primary) 15%, transparent);
+            }
+        }
+    }
+
+    /* ----------------------------------------------------------
+       Buttons
+    ---------------------------------------------------------- */
+    .btn-group {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-block-end: 1.5rem;
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.875rem 2rem;
+        border-radius: var(--radius-pill);
+        font-weight: 600;
+        font-size: 1rem;
+        font-family: inherit;
+        cursor: pointer;
+        border: none;
+        min-block-size: 48px;
+        /* Exceeds 44px tap target minimum */
+        transition: background var(--duration-fast) var(--ease-out-cubic),
+            box-shadow var(--duration-fast) var(--ease-out-cubic),
+            translate var(--duration-fast) var(--ease-out-cubic),
+            opacity var(--duration-fast) var(--ease-out-cubic);
+
+        &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    }
+
+    .btn-primary {
+        background: var(--color-primary);
+        color: var(--text-inverse);
+        box-shadow: var(--glow-primary);
+
+        &:hover:not(:disabled) {
+            background: var(--color-primary-hover);
+            translate: 0 -2px;
+            box-shadow: var(--glow-primary-hover);
+        }
+    }
+
+    .btn-secondary {
+        background: var(--bg-subtle);
+        color: var(--text-main);
+        border: 1px solid var(--border);
+
+        &:hover:not(:disabled) {
+            background: var(--border);
+            translate: 0 -2px;
+        }
+    }
+
+    /* ----------------------------------------------------------
+       Hint text
+    ---------------------------------------------------------- */
+    .hint-text {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        margin-block-start: 0.5rem;
+    }
+
+    /* ----------------------------------------------------------
+       Progress
+    ---------------------------------------------------------- */
+    .progress-container {
+        margin-block-start: 1.5rem;
+    }
+
+    .progress-bar-wrapper {
+        block-size: 10px;
+        background: var(--border);
+        border-radius: var(--radius-pill);
+        overflow: hidden;
+    }
+
+    .progress-bar {
+        block-size: 100%;
+        background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+        inline-size: 0%;
+        transition: inline-size 0.4s ease;
+    }
+
+    .progress-text {
+        text-align: center;
+        margin-block-start: 0.75rem;
+        font-size: 0.9rem;
+        color: var(--text-muted);
+    }
+
+    /* ----------------------------------------------------------
+       Results / Tabs
+    ---------------------------------------------------------- */
+    .tabs-container {
+        display: flex;
+        justify-content: center;
+        margin-block-end: 2rem;
+        background: var(--bg-surface);
+        padding: 0.5rem;
+        border-radius: var(--radius-pill);
+        box-shadow: var(--shadow-md);
+        inline-size: fit-content;
+        margin-inline: auto;
+    }
+
+    .tab-btn {
+        padding: 0.75rem 2rem;
+        border: none;
+        background: none;
+        border-radius: var(--radius-pill);
+        font-weight: 600;
+        font-size: 1rem;
+        font-family: inherit;
+        cursor: pointer;
+        color: var(--text-muted);
+        min-block-size: 44px;
+        transition: background var(--duration-fast) var(--ease-out-cubic),
+            color var(--duration-fast) var(--ease-out-cubic),
+            box-shadow var(--duration-fast) var(--ease-out-cubic);
+
+        &.active,
+        &[aria-selected="true"] {
+            background: var(--color-primary);
+            color: var(--text-inverse);
+            box-shadow: var(--shadow-sm);
+        }
+    }
+
+    /* ----------------------------------------------------------
+       Code
+    ---------------------------------------------------------- */
+    .code-container {
+        background: var(--bg-code);
+        border-radius: var(--radius);
+        overflow: hidden;
+        margin-block-start: 1.5rem;
+    }
+
+    .code-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        background: var(--bg-code-header);
+        color: oklch(90% 0 0);
+    }
+
+    .copy-btn {
+        background: none;
+        border: none;
+        color: var(--text-code-dim);
+        cursor: pointer;
+        padding: 0.5rem;
+        border-radius: 0.5rem;
+        min-block-size: 44px;
+        min-inline-size: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: color var(--duration-fast) var(--ease-out-cubic),
+            background var(--duration-fast) var(--ease-out-cubic);
+
+        &:hover {
+            color: oklch(100% 0 0);
+            background: oklch(100% 0 0 / 0.1);
+        }
+    }
+
+    pre {
+        padding: 2rem;
+        color: var(--text-code);
+        font-family: 'Fira Code', ui-monospace, 'Cascadia Code', Consolas, monospace;
+        font-size: 0.9rem;
+        overflow-x: auto;
+        white-space: pre-wrap;
+
+        & code {
+            font-family: inherit;
+        }
+    }
+
+    /* ----------------------------------------------------------
+       Footer
+    ---------------------------------------------------------- */
+    .dev-footer {
+        text-align: center;
+        margin-block-start: 4rem;
+        padding-block: 3rem;
+        border-block-start: 1px solid var(--border);
+
+        & p {
+            margin-block-end: 0.5rem;
+        }
+    }
+
+    .footer-link {
+        color: var(--color-primary);
+        font-weight: 700;
+        text-decoration: none;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+
+    .footer-links {
+        display: flex;
+        justify-content: center;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+        margin-block-start: 1rem;
+    }
+
+    .footer-social-link {
+        color: var(--text-muted);
+        text-decoration: none;
+        font-size: 0.9rem;
+        transition: color var(--duration-fast) var(--ease-out-cubic);
+
+        &:hover {
+            color: var(--color-primary);
+        }
+    }
+
+    .footer-copy {
+        margin-block-start: 1.5rem;
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+
+}
+
+/* end @layer components */
+
+/* ============================================================
+   Custom scrollbar — page-level & code blocks
+   ::-webkit-scrollbar works in Chrome/Edge/Safari.
+   scrollbar-width + scrollbar-color is the standard (Firefox + Chrome 121+).
+   ============================================================ */
+
+/* Standard (Firefox + Chrome 121+) */
+:root {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(76% 0.14 186 / 0.5) transparent;
+}
+
+/* Webkit (Chrome/Edge/Safari) */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: color-mix(in oklch, var(--color-primary) 45%, var(--border));
+    border-radius: 100px;
+    transition: background var(--duration-fast) ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primary);
+}
+
+::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+/* Code block scrollbar — slightly more visible against dark bg */
+pre::-webkit-scrollbar {
+    height: 5px;
+}
+
+pre::-webkit-scrollbar-track {
+    background: oklch(20% 0 0 / 0.3);
+    border-radius: 100px;
+}
+
+pre::-webkit-scrollbar-thumb {
+    background: color-mix(in oklch, var(--color-primary) 60%, transparent);
+    border-radius: 100px;
+}
+
+pre::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primary);
+}
+
+/* Standard scrollbar for code blocks */
+pre {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--color-primary) 60%, transparent) oklch(20% 0 0 / 0.3);
+}
+
+/* Picker dropdown scrollbar */
+.custom-select::picker(select) {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--color-primary) 40%, var(--border)) transparent;
+}
+
+.custom-select::picker(select)::-webkit-scrollbar {
+    width: 4px;
+}
+
+.custom-select::picker(select)::-webkit-scrollbar-thumb {
+    background: color-mix(in oklch, var(--color-primary) 40%, var(--border));
+    border-radius: 100px;
+}
+
+/* ============================================================
+   LAYER: utilities
+   ============================================================ */
+@layer utilities {
+
+    /* Reduced motion — all animated elements respect this */
+    @media (prefers-reduced-motion: reduce) {
+
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
+    }
+}
+
+/* ============================================================
+   Responsive — mobile breakpoints
+   (Media query used here because this is a true viewport-level
+    concern, not a component layout concern)
+   ============================================================ */
+@media (max-width: 768px) {
+    .app-title {
+        font-size: 1.75rem;
+    }
+
+    .nav-links {
+        display: none;
+    }
+
+    .mobile-toggle {
+        display: flex;
+    }
+
+    .btn {
+        inline-size: 100%;
+        justify-content: center;
+    }
+
+    .dev-analytics img {
+        max-inline-size: 100%;
+    }
+}
