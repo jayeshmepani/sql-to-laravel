@@ -353,8 +353,8 @@ class SQLConverter {
 
         const getDependencies = (tableData) => {
             const deps = new Set();
-            if (tableData.structure.foreignKeys) {
-                tableData.structure.foreignKeys.forEach(fk => {
+            if (tableData.foreignKeys) {
+                tableData.foreignKeys.forEach(fk => {
                     const match = fk.match(/REFERENCES\s*(?:`([^`]+)`|"([^"]+)"|'([^']+)'|([^\s(]+))/i);
                     if (match) {
                         const depTable = match[1] || match[2] || match[3] || match[4];
@@ -389,7 +389,7 @@ class SQLConverter {
         const sortedTableNames = this.sortTablesByDependency(tables);
         
         sortedTableNames.forEach(name => {
-            const code = MigrationGenerator.generate(name, tables[name].structure, options);
+            const code = MigrationGenerator.generate(name, tables[name], options);
             if (code) migrations[name] = code;
         });
         
