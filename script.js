@@ -246,7 +246,9 @@ class SQLConverter {
         this.migrations = {};
         this.resultContainer.hidden = true;
         while (this.seederSelect.options.length > 1) this.seederSelect.remove(1);
-        this.migrationSelect.querySelectorAll('option').forEach(opt => opt.remove());
+        // Remove only options from migration select to preserve button structure
+        const opts = this.migrationSelect.querySelectorAll('option');
+        opts.forEach(o => o.remove());
     }
 
     updateButtons() {
@@ -344,12 +346,53 @@ class SQLConverter {
         this.resultContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
+    sortTablesByDependency(tables) {
+        const sorted = [];
+        const visited = new Set();
+        const visiting = new Set();
+
+        const getDependencies = (tableData) => {
+            const deps = new Set();
+            if (tableData.structure.foreignKeys) {
+                tableData.structure.foreignKeys.forEach(fk => {
+                    const match = fk.match(/REFERENCES\s*(?:`([^`]+)`|"([^"]+)"|'([^']+)'|([^\s(]+))/i);
+                    if (match) {
+                        const depTable = match[1] || match[2] || match[3] || match[4];
+                        if (tables[depTable] && depTable !== tableData.tableName) {
+                            deps.add(depTable);
+                        }
+                    }
+                });
+            }
+            return Array.from(deps);
+        };
+
+        const visit = (name) => {
+            if (visiting.has(name)) return; // Cycle detected
+            if (visited.has(name)) return;
+
+            visiting.add(name);
+            const deps = getDependencies(tables[name]);
+            deps.forEach(dep => visit(dep));
+
+            visiting.delete(name);
+            visited.add(name);
+            sorted.push(name);
+        };
+
+        Object.keys(tables).forEach(name => visit(name));
+        return sorted;
+    }
+
     generateMigrations(tables, options) {
         const migrations = {};
-        for (const [name, data] of Object.entries(tables)) {
-            const code = MigrationGenerator.generate(name, data, options);
+        const sortedTableNames = this.sortTablesByDependency(tables);
+        
+        sortedTableNames.forEach(name => {
+            const code = MigrationGenerator.generate(name, tables[name].structure, options);
             if (code) migrations[name] = code;
-        }
+        });
+        
         return migrations;
     }
 
@@ -374,19 +417,27 @@ class SQLConverter {
     }
 
     populateSeederSelector(data) {
-        // Remove only option elements, starting from index 1 (keep "database" option)
-        // or just use querySelectorAll to remove all options if we want to be thorough
         const options = this.seederSelect.querySelectorAll('option');
         options.forEach((opt, index) => {
-            if (index > 0) opt.remove();
+            if (opt.value !== 'database') opt.remove();
         });
+
+        // Add icon to database option if missing
+        const firstOpt = this.seederSelect.querySelector('option[value="database"]');
+        if (firstOpt && !firstOpt.querySelector('.opt-icon')) {
+            firstOpt.innerHTML = `
+                <svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" 
+                    stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                </svg>
+                <span>DatabaseSeeder</span>
+            `;
+        }
 
         if (data?.seeders) {
             Object.keys(data.seeders).sort().forEach(name => {
                 const opt = document.createElement('option');
                 opt.value = name;
-                
-                // Add icon for consistency with version selector
                 opt.innerHTML = `
                     <svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" 
                         stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -400,15 +451,13 @@ class SQLConverter {
     }
 
     populateMigrationSelector(migrations, preferredValue = null) {
-        // Remove only option elements to preserve the custom button/arrow
         const options = this.migrationSelect.querySelectorAll('option');
         options.forEach(opt => opt.remove());
 
-        Object.keys(migrations).sort().forEach(name => {
+        // Respect dependency order in the dropdown too
+        Object.keys(migrations).forEach(name => {
             const opt = document.createElement('option');
             opt.value = name;
-            
-            // Add icon for consistency with version selector
             opt.innerHTML = `
                 <svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" 
                     stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -521,10 +570,12 @@ class SQLConverter {
             if (Object.keys(this.migrations).length > 0) {
                 const folder = zip.folder('database/migrations');
                 let ts = Date.now();
+                
+                // Get the migration keys in their current order (which is already sorted topologically)
                 Object.entries(this.migrations).forEach(([name, code]) => {
                     const dateStr = this.formatDate(ts);
                     folder.file(`${dateStr}_create_${name}_table.php`, code);
-                    ts += 1000;
+                    ts += 1000; // Increment slightly to ensure chronological order
                 });
             }
 

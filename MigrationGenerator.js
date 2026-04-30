@@ -77,6 +77,7 @@ class ${className} extends Migration
     }
 
     static generateColumns(columns, foreignKeys = [], indexes = [], options = {}) {
+        const version = Number(options.laravelVersion) || 13;
         const singleColumnFKs = new Map();
         const singleColumnUnique = new Set();
         const singleColumnIndex = new Set();
@@ -220,24 +221,24 @@ class ${className} extends Migration
 
         // Add standard timestamps
         if (hasCreatedAt && hasUpdatedAt) {
-            if (isTzTimestamp('created_at') || isTzTimestamp('updated_at')) {
+            if ((isTzTimestamp('created_at') || isTzTimestamp('updated_at')) && version >= 11) {
                 columnStatements.push('$table->timestampsTz();');
             } else {
                 columnStatements.push('$table->timestamps();');
             }
         } else {
             if (hasCreatedAt) {
-                const helper = isTzTimestamp('created_at') ? 'timestampTz' : 'timestamp';
+                const helper = (isTzTimestamp('created_at') && version >= 11) ? 'timestampTz' : 'timestamp';
                 columnStatements.push(`$table->${helper}('created_at')->nullable();`);
             }
             if (hasUpdatedAt) {
-                const helper = isTzTimestamp('updated_at') ? 'timestampTz' : 'timestamp';
+                const helper = (isTzTimestamp('updated_at') && version >= 11) ? 'timestampTz' : 'timestamp';
                 columnStatements.push(`$table->${helper}('updated_at')->nullable();`);
             }
         }
 
         if (hasDeletedAt) {
-            const helper = isTzTimestamp('deleted_at') ? 'softDeletesTz' : 'softDeletes';
+            const helper = (isTzTimestamp('deleted_at') && version >= 11) ? 'softDeletesTz' : 'softDeletes';
             columnStatements.push(`$table->${helper}();`);
         }
 
@@ -496,7 +497,11 @@ class ${className} extends Migration
                                     type === 'multipoint' ? 'multiPoint' :
                                     type === 'multilinestring' ? 'multiLineString' :
                                     type === 'multipolygon' ? 'multiPolygon' : type;
-                columnCode = `$table->${spatialMethod}('${escapedColumn}')`;
+                if (type === 'geography' && version < 11) {
+                    columnCode = `$table->geometry('${escapedColumn}')`;
+                } else {
+                    columnCode = `$table->${spatialMethod}('${escapedColumn}')`;
+                }
                 break;
             case 'tsvector':
                 columnCode = version >= 12
@@ -505,9 +510,12 @@ class ${className} extends Migration
                 break;
             case 'vector':
                 const dimensions = columnData.length || 3;
-                columnCode = `$table->vector('${escapedColumn}', ${dimensions})`;
-                break;
-            default:
+                if (version >= 11) {
+                    columnCode = `$table->vector('${escapedColumn}', ${dimensions})`;
+                } else {
+                    columnCode = `$table->text('${escapedColumn}')`;
+                }
+                break;            default:
                 if (columnName === 'remember_token' && (type === 'varchar' || type === 'string')) {
                     return `$table->rememberToken();`;
                 }
