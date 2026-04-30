@@ -23,7 +23,6 @@ A premium, privacy-first, client-side tool designed to transform raw SQL databas
 
 - **Vanilla JavaScript**: High-performance core without heavy framework overhead.
 - **Web Workers**: Background processing for massive SQL files without freezing the UI.
-- **Glassmorphism UI**: Modern, responsive interface using pure CSS and optimized SVGs.
 - **JSZip Integration**: Batch export your entire database structure as a ready-to-use Laravel ZIP suite.
 
 ## 📖 Usage
