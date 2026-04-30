@@ -49,10 +49,22 @@ class SQLConverter {
         
         // Options & Actions
         this.laravelVersionSelect = document.getElementById('laravelVersion');
+        this.dbDriverSelect = document.getElementById('dbDriver');
+        this.dbVersionSelect = document.getElementById('dbVersion');
         this.generateSeedersCheckbox = document.getElementById('generateSeeders');
         this.generateMigrationsCheckbox = document.getElementById('generateMigrations');
         this.generateBtn = document.getElementById('generateBtn');
         this.exportBtn = document.getElementById('exportBtn');
+
+        // Setup DB versions
+        this.dbVersions = {
+            mysql: ['9.7.0', '9.0.0', '8.4', '8.0'],
+            pgsql: ['18.3', '17.0', '16.0', '15.0', '14.22'],
+            mariadb: ['12.2.2', '11.4', '10.11'],
+            sqlite: ['3.53.1', '3.50.0', '3.45']
+        };
+        
+        this.populateDbVersions();
 
         // Results Layout
         this.resultContainer = document.getElementById('resultContainer');
@@ -107,7 +119,13 @@ class SQLConverter {
         // Configuration updates
         this.generateSeedersCheckbox.addEventListener('change', () => this.updateButtons());
         this.generateMigrationsCheckbox.addEventListener('change', () => this.updateButtons());
-        this.laravelVersionSelect.addEventListener('change', () => this.handleLaravelVersionChange());
+        
+        this.laravelVersionSelect.addEventListener('change', () => this.handleVersionChange());
+        this.dbDriverSelect.addEventListener('change', () => {
+            this.populateDbVersions();
+            this.handleVersionChange();
+        });
+        this.dbVersionSelect.addEventListener('change', () => this.handleVersionChange());
 
         // Result selection
         this.seederSelect.addEventListener('change', () => this.displaySelectedSeeder());
@@ -245,10 +263,13 @@ class SQLConverter {
         this.seeders = {};
         this.migrations = {};
         this.resultContainer.hidden = true;
-        while (this.seederSelect.options.length > 1) this.seederSelect.remove(1);
-        // Remove only options from migration select to preserve button structure
-        const opts = this.migrationSelect.querySelectorAll('option');
-        opts.forEach(o => o.remove());
+        
+        // Surgical removal of options
+        const seederOpts = this.seederSelect.querySelectorAll('option');
+        seederOpts.forEach(o => { if (o.value !== 'database') o.remove(); });
+        
+        const migrationOpts = this.migrationSelect.querySelectorAll('option');
+        migrationOpts.forEach(o => o.remove());
     }
 
     updateButtons() {
@@ -256,6 +277,26 @@ class SQLConverter {
         const hasSelection = this.generateMigrationsCheckbox.checked || this.generateSeedersCheckbox.checked;
         this.generateBtn.disabled = !(hasFiles && hasSelection);
         this.exportBtn.disabled = !(hasFiles && hasSelection);
+    }
+
+    populateDbVersions() {
+        const driver = this.dbDriverSelect.value;
+        const versions = this.dbVersions[driver] || [];
+        
+        // Remove only options, preserve button structure
+        const opts = this.dbVersionSelect.querySelectorAll('option');
+        opts.forEach(o => o.remove());
+
+        versions.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v;
+            this.dbVersionSelect.appendChild(opt);
+        });
+
+        if (this.dbVersionSelect.options.length > 0) {
+            this.dbVersionSelect.selectedIndex = 0;
+        }
     }
 
     async handleGenerateClick() {
@@ -266,7 +307,9 @@ class SQLConverter {
         const options = {
             generateSeeders: this.generateSeedersCheckbox.checked,
             generateMigrations: this.generateMigrationsCheckbox.checked,
-            laravelVersion: this.getSelectedLaravelVersion()
+            laravelVersion: this.getSelectedLaravelVersion(),
+            dbDriver: this.dbDriverSelect.value,
+            dbVersion: this.dbVersionSelect.value
         };
 
         if (this.canUseWorkers) {
@@ -280,27 +323,21 @@ class SQLConverter {
 
     async generateWithWorker(options) {
         if (!this.worker) await this.initWorker();
-        
         this.updateProgress(10, 'Waking up processing worker...');
-        
         return new Promise((resolve) => {
             const combinedSql = this.sqlFiles.map(f => f.content).join("\n\n");
-            
-            // The handleWorkerMessage will resolve the promise
             this.worker.postMessage({ sqlContent: combinedSql, options });
-            
-            // Local resolution override if needed
             this.resolveWorker = resolve;
         });
     }
 
     async generateWithFallback(options) {
-        this.updateProgress(5, 'Processing in main thread (High memory warning)...');
+        this.updateProgress(5, 'Processing in main thread...');
         const combinedSql = this.sqlFiles.map(file => file.content).join("\n\n");
         await this.processInChunks(combinedSql, options);
     }
 
-    async processInChunks(sqlContent, options, chunkSize = 512 * 1024) { // 512KB chunks for safety
+    async processInChunks(sqlContent, options, chunkSize = 512 * 1024) {
         const chunks = [];
         for (let i = 0; i < sqlContent.length; i += chunkSize) {
             chunks.push(sqlContent.slice(i, i + chunkSize));
@@ -309,15 +346,13 @@ class SQLConverter {
         let processedData = '';
         for (let i = 0; i < chunks.length; i++) {
             processedData += chunks[i];
-            this.updateProgress(
-                Math.floor(10 + (i / chunks.length * 20)),
-                `Loading SQL chunks (${i + 1}/${chunks.length})...`
-            );
+            this.updateProgress(Math.floor(10 + (i / chunks.length * 20)), `Loading SQL chunks (${i + 1}/${chunks.length})...`);
             await new Promise(resolve => setTimeout(resolve, 0));
         }
 
         this.updateProgress(40, 'Parsing SQL structure...');
         const parsed = SQLParser.parseSQLContent(processedData);
+        this.tables = parsed.tables;
 
         if (options.generateSeeders) {
             this.updateProgress(60, 'Synthesizing seeders...');
@@ -337,9 +372,10 @@ class SQLConverter {
 
     showResults(options) {
         this.resultContainer.hidden = false;
-        if (options.generateMigrations && !options.generateSeeders) {
+        if (options.generateMigrations) {
             this.switchTab('migrations');
-        } else {
+            this.displaySelectedMigration();
+        } else if (options.generateSeeders) {
             this.switchTab('seeders');
             this.displaySelectedSeeder(false);
         }
@@ -368,8 +404,8 @@ class SQLConverter {
         };
 
         const visit = (name) => {
-            if (visiting.has(name)) return; // Cycle detected
             if (visited.has(name)) return;
+            if (visiting.has(name)) return;
 
             visiting.add(name);
             const deps = getDependencies(tables[name]);
@@ -387,12 +423,11 @@ class SQLConverter {
     generateMigrations(tables, options) {
         const migrations = {};
         const sortedTableNames = this.sortTablesByDependency(tables);
-        
         sortedTableNames.forEach(name => {
+            if (name.toLowerCase() === 'migrations') return;
             const code = MigrationGenerator.generate(name, tables[name], options);
             if (code) migrations[name] = code;
         });
-        
         return migrations;
     }
 
@@ -400,51 +435,34 @@ class SQLConverter {
         return parseInt(this.laravelVersionSelect.value, 10) || 13;
     }
 
-    rebuildMigrationsForCurrentVersion() {
-        if (!this.tables) return false;
-
+    handleVersionChange() {
+        if (!this.tables || Object.keys(this.migrations).length === 0) return;
+        
         const selectedMigration = this.migrationSelect.value;
-        this.migrations = this.generateMigrations(this.tables, {
-            laravelVersion: this.getSelectedLaravelVersion()
-        });
-        this.populateMigrationSelector(this.migrations, selectedMigration);
-        return true;
-    }
+        const options = {
+            laravelVersion: this.getSelectedLaravelVersion(),
+            dbDriver: this.dbDriverSelect.value,
+            dbVersion: this.dbVersionSelect.value
+        };
 
-    handleLaravelVersionChange() {
-        if (Object.keys(this.migrations).length === 0) return;
-        this.rebuildMigrationsForCurrentVersion();
+        this.migrations = this.generateMigrations(this.tables, options);
+        this.populateMigrationSelector(this.migrations, selectedMigration);
     }
 
     populateSeederSelector(data) {
         const options = this.seederSelect.querySelectorAll('option');
-        options.forEach((opt, index) => {
-            if (opt.value !== 'database') opt.remove();
-        });
+        options.forEach(opt => { if (opt.value !== 'database') opt.remove(); });
 
-        // Add icon to database option if missing
         const firstOpt = this.seederSelect.querySelector('option[value="database"]');
         if (firstOpt && !firstOpt.querySelector('.opt-icon')) {
-            firstOpt.innerHTML = `
-                <svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" 
-                    stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                </svg>
-                <span>DatabaseSeeder</span>
-            `;
+            firstOpt.innerHTML = `<svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg><span>DatabaseSeeder</span>`;
         }
 
         if (data?.seeders) {
             Object.keys(data.seeders).sort().forEach(name => {
                 const opt = document.createElement('option');
                 opt.value = name;
-                opt.innerHTML = `
-                    <svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" 
-                        stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                    </svg>
-                    <span>${SeederGenerator.formatClassName(name)}Seeder</span>
-                `;
+                opt.innerHTML = `<svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg><span>${SeederGenerator.formatClassName(name)}Seeder</span>`;
                 this.seederSelect.appendChild(opt);
             });
         }
@@ -454,29 +472,16 @@ class SQLConverter {
         const options = this.migrationSelect.querySelectorAll('option');
         options.forEach(opt => opt.remove());
 
-        // Respect dependency order in the dropdown too
         Object.keys(migrations).forEach(name => {
             const opt = document.createElement('option');
             opt.value = name;
-            opt.innerHTML = `
-                <svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" 
-                    stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <line x1="6" y1="3" x2="6" y2="15"></line>
-                    <circle cx="18" cy="6" r="3"></circle>
-                    <circle cx="6" cy="18" r="3"></circle>
-                    <path d="M18 9a9 9 0 0 1-9 9"></path>
-                </svg>
-                <span>${MigrationGenerator.formatClassName(name)}Table</span>
-            `;
+            opt.innerHTML = `<svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="6" y1="3" x2="6" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg><span>${MigrationGenerator.formatClassName(name)}Table</span>`;
             this.migrationSelect.appendChild(opt);
         });
         
         if (this.migrationSelect.options.length > 0) {
-            if (preferredValue && migrations[preferredValue]) {
-                this.migrationSelect.value = preferredValue;
-            } else {
-                this.migrationSelect.selectedIndex = 0;
-            }
+            if (preferredValue && migrations[preferredValue]) this.migrationSelect.value = preferredValue;
+            else this.migrationSelect.selectedIndex = 0;
             this.displaySelectedMigration();
         }
     }
@@ -485,10 +490,8 @@ class SQLConverter {
         const isSeeders = tab === 'seeders';
         this.seedersTab.hidden = !isSeeders;
         this.migrationsTab.hidden = isSeeders;
-        
         this.seedersTabBtn.classList.toggle('active', isSeeders);
         this.migrationsTabBtn.classList.toggle('active', !isSeeders);
-        
         this.seedersTabBtn.setAttribute('aria-selected', isSeeders);
         this.migrationsTabBtn.setAttribute('aria-selected', !isSeeders);
     }
@@ -550,13 +553,19 @@ class SQLConverter {
             const version = this.getSelectedLaravelVersion();
             const combinedSql = this.sqlFiles.map(f => f.content).join("\n\n");
             
-            // Refresh data if state is empty
             if (this.generateSeedersCheckbox.checked && !this.seeders.databaseSeeder) {
                 this.seeders = SeederGenerator.generateAllSeeders(combinedSql);
             }
+            
+            const options = {
+                laravelVersion: version,
+                dbDriver: this.dbDriverSelect.value,
+                dbVersion: this.dbVersionSelect.value
+            };
+
             if (this.generateMigrationsCheckbox.checked) {
                 const parsed = SQLParser.parseSQLContent(combinedSql);
-                this.migrations = this.generateMigrations(parsed.tables, { laravelVersion: version });
+                this.migrations = this.generateMigrations(parsed.tables, options);
             }
 
             if (this.seeders.databaseSeeder) {
@@ -570,12 +579,10 @@ class SQLConverter {
             if (Object.keys(this.migrations).length > 0) {
                 const folder = zip.folder('database/migrations');
                 let ts = Date.now();
-                
-                // Get the migration keys in their current order (which is already sorted topologically)
                 Object.entries(this.migrations).forEach(([name, code]) => {
                     const dateStr = this.formatDate(ts);
                     folder.file(`${dateStr}_create_${name}_table.php`, code);
-                    ts += 1000; // Increment slightly to ensure chronological order
+                    ts += 1000;
                 });
             }
 
@@ -592,58 +599,40 @@ class SQLConverter {
 
     formatDate(ts) {
         const d = new Date(ts);
-        return d.getFullYear() + '_' + 
-               String(d.getMonth() + 1).padStart(2, '0') + '_' + 
-               String(d.getDate()).padStart(2, '0') + '_' + 
-               String(d.getHours()).padStart(2, '0') + 
-               String(d.getMinutes()).padStart(2, '0') + 
-               String(d.getSeconds()).padStart(2, '0');
+        return d.getFullYear() + '_' + String(d.getMonth() + 1).padStart(2, '0') + '_' + String(d.getDate()).padStart(2, '0') + '_' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0') + String(d.getSeconds()).padStart(2, '0');
     }
 
     async initWorker() {
         if (this.worker) this.worker.terminate();
-
         try {
             this.worker = new Worker('SQLProcessorWorker.js');
             this.worker.onmessage = (e) => this.handleWorkerMessage(e.data);
-            this.worker.onerror = (err) => {
-                console.error('Worker Failure:', err);
-                this.canUseWorkers = false;
-            };
-        } catch (e) {
-            this.canUseWorkers = false;
-        }
+            this.worker.onerror = (err) => { console.error('Worker Failure:', err); this.canUseWorkers = false; };
+        } catch (e) { this.canUseWorkers = false; }
     }
 
     handleWorkerMessage(data) {
-        if (data.type === 'progress') {
-            this.updateProgress(data.progress, data.message);
-        } else if (data.type === 'result') {
+        if (data.type === 'progress') this.updateProgress(data.progress, data.message);
+        else if (data.type === 'result') {
             this.tables = data.result.tables;
             this.seeders = data.result.seedersData || {};
             
-            if (this.generateMigrationsCheckbox.checked) {
-                this.migrations = this.generateMigrations(this.tables, { 
-                    laravelVersion: this.getSelectedLaravelVersion()
-                });
-            }
+            const options = {
+                laravelVersion: this.getSelectedLaravelVersion(),
+                dbDriver: this.dbDriverSelect.value,
+                dbVersion: this.dbVersionSelect.value
+            };
 
+            if (this.generateMigrationsCheckbox.checked) {
+                this.migrations = this.generateMigrations(this.tables, options);
+            }
             this.populateSeederSelector(this.seeders);
             this.populateMigrationSelector(this.migrations);
-            this.showResults({ 
-                generateMigrations: this.generateMigrationsCheckbox.checked, 
-                generateSeeders: this.generateSeedersCheckbox.checked 
-            });
+            this.showResults({ generateMigrations: this.generateMigrationsCheckbox.checked, generateSeeders: this.generateSeedersCheckbox.checked });
             this.updateProgress(100, 'Generation Complete!');
             if (this.resolveWorker) this.resolveWorker();
-        } else if (data.type === 'error') {
-            alert(`Worker Error: ${data.error}`);
-            this.updateProgress(0);
-        }
+        } else if (data.type === 'error') { alert(`Worker Error: ${data.error}`); this.updateProgress(0); }
     }
 }
 
-// Global Application Startup
-document.addEventListener('DOMContentLoaded', () => {
-    window.SQLApp = new SQLConverter();
-});
+document.addEventListener('DOMContentLoaded', () => { window.SQLApp = new SQLConverter(); });

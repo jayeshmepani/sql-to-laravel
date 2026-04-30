@@ -262,6 +262,7 @@ CREATE TABLE `laravel_13_features` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `c_geography` geography NOT NULL,
   `c_tsvector` tsvector,
+  `c_vector_sparse` vector(1536) NOT NULL COMMENT 'sparse_embedding',
   `created_at` timestamp with time zone NULL DEFAULT NULL,
   `updated_at` timestamp with time zone NULL DEFAULT NULL,
   `deleted_at` timestamp with time zone NULL DEFAULT NULL,

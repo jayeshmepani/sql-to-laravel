@@ -216,49 +216,87 @@
                     Generation Options
                 </h2>
 
-                <div class="version-selector">
-                    <label for="laravelVersion">Target Laravel Version</label>
-                    <select id="laravelVersion" class="custom-select">
-                        <button>
-                            <selectedcontent></selectedcontent>
-                            <svg class="select-arrow" width="16" height="16" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2.5"
-                                stroke-linecap="round" stroke-linejoin="round"
-                                aria-hidden="true" focusable="false">
-                                <polyline points="6 9 12 15 18 9"/>
-                            </svg>
-                        </button>
-                        <option value="13">
-                            <svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-                            </svg>
-                            <span>Laravel 13+ (Latest)</span>
-                        </option>
-                        <option value="12">
-                            <svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                <circle cx="12" cy="12" r="10"/>
-                                <polyline points="12 6 12 12 16 14"/>
-                            </svg>
-                            <span>Laravel 12</span>
-                        </option>
-                        <option value="11">
-                            <svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                <circle cx="12" cy="12" r="10"/>
-                                <polyline points="12 6 12 12 16 14"/>
-                            </svg>
-                            <span>Laravel 11</span>
-                        </option>
-                    </select>
+                <div class="options-row">
+                    <div class="version-selector">
+                        <label for="laravelVersion">Laravel Version</label>
+                        <select id="laravelVersion" class="custom-select">
+                            <button>
+                                <selectedcontent></selectedcontent>
+                                <svg class="select-arrow" width="16" height="16" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2.5"
+                                    stroke-linecap="round" stroke-linejoin="round"
+                                    aria-hidden="true" focusable="false">
+                                    <polyline points="6 9 12 15 18 9"/>
+                                </svg>
+                            </button>
+                            <option value="13">Laravel 13+ (Latest)</option>
+                            <option value="12">Laravel 12</option>
+                            <option value="11">Laravel 11</option>
+                        </select>
+                    </div>
+
+                    <div class="version-selector">
+                        <label for="dbDriver">Database Driver</label>
+                        <select id="dbDriver" class="custom-select">
+                            <button>
+                                <selectedcontent></selectedcontent>
+                                <svg class="select-arrow" width="16" height="16" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2.5"
+                                    stroke-linecap="round" stroke-linejoin="round"
+                                    aria-hidden="true" focusable="false">
+                                    <polyline points="6 9 12 15 18 9"/>
+                                </svg>
+                            </button>
+                            <option value="mysql">
+                                <svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                </svg>
+                                <span>MySQL</span>
+                            </option>
+                            <option value="pgsql">
+                                <svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                                </svg>
+                                <span>PostgreSQL</span>
+                            </option>
+                            <option value="mariadb">
+                                <svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                                    <line x1="8" y1="21" x2="16" y2="21"/>
+                                    <line x1="12" y1="17" x2="12" y2="21"/>
+                                </svg>
+                                <span>MariaDB</span>
+                            </option>
+                            <option value="sqlite">
+                                <svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                                </svg>
+                                <span>SQLite</span>
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="version-selector">
+                        <label for="dbVersion">DB Version</label>
+                        <select id="dbVersion" class="custom-select">
+                            <button>
+                                <selectedcontent></selectedcontent>
+                                <svg class="select-arrow" width="16" height="16" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2.5"
+                                    stroke-linecap="round" stroke-linejoin="round"
+                                    aria-hidden="true" focusable="false">
+                                    <polyline points="6 9 12 15 18 9"/>
+                                </svg>
+                            </button>
+                        </select>
+                    </div>
                 </div>
 
                 <fieldset class="options-fieldset">
                     <legend class="options-legend">Output types</legend>
                     <div class="options-grid">
                         <div class="option-card">
-                            <input type="checkbox" id="generateMigrations">
+                            <input type="checkbox" id="generateMigrations" checked>
                             <label for="generateMigrations" class="option-label">
                                 <svg class="option-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -272,7 +310,7 @@
                             </label>
                         </div>
                         <div class="option-card">
-                            <input type="checkbox" id="generateSeeders" checked>
+                            <input type="checkbox" id="generateSeeders">
                             <label for="generateSeeders" class="option-label">
                                 <svg class="option-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -326,14 +364,14 @@
 
                 <!-- Accessible tab pattern -->
                 <div class="tabs-container" role="tablist" aria-label="Output type">
-                    <button id="seedersTabBtn" class="tab-btn active" role="tab"
-                        aria-selected="true" aria-controls="seedersTab">Seeders</button>
-                    <button id="migrationsTabBtn" class="tab-btn" role="tab"
-                        aria-selected="false" aria-controls="migrationsTab" tabindex="-1">Migrations</button>
+                    <button id="migrationsTabBtn" class="tab-btn active" role="tab"
+                        aria-selected="true" aria-controls="migrationsTab">Migrations</button>
+                    <button id="seedersTabBtn" class="tab-btn" role="tab"
+                        aria-selected="false" aria-controls="seedersTab" tabindex="-1">Seeders</button>
                 </div>
 
                 <!-- Seeders Tab -->
-                <div id="seedersTab" role="tabpanel" aria-labelledby="seedersTabBtn">
+                <div id="seedersTab" role="tabpanel" aria-labelledby="seedersTabBtn" hidden>
                     <div class="version-selector">
                         <label for="seederSelect">Select Seeder:</label>
                         <select id="seederSelect" class="custom-select">
@@ -366,7 +404,7 @@
                 </div>
 
                 <!-- Migrations Tab -->
-                <div id="migrationsTab" role="tabpanel" aria-labelledby="migrationsTabBtn" hidden>
+                <div id="migrationsTab" role="tabpanel" aria-labelledby="migrationsTabBtn">
                     <div class="version-selector">
                         <label for="migrationSelect">Select Migration:</label>
                         <select id="migrationSelect" class="custom-select">

@@ -516,9 +516,14 @@
     /* ----------------------------------------------------------
        Version selector wrapper
     ---------------------------------------------------------- */
-    .version-selector {
-        margin-block-end: 1.5rem;
+    .options-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-block-end: 2rem;
+    }
 
+    .version-selector {
         & label {
             display: block;
             font-weight: 500;

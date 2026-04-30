@@ -58,21 +58,45 @@ class SQLParser {
     }
 
     static splitIntoStatements(sqlContent) {
-        // Remove comments and normalize whitespace
-        sqlContent = sqlContent
-            .replace(/--.*$/gm, '')
-            .replace(/\/\*[\s\S]*?\*\//g, '')
-            .replace(/#.*$/gm, '')
-            .trim();
-
         const statements = [];
         let currentStatement = '';
         let inString = false;
         let stringChar = '';
         let parenDepth = 0;
+        let inLineComment = false;
+        let inBlockComment = false;
 
         for (let i = 0; i < sqlContent.length; i++) {
             const char = sqlContent[i];
+            const nextChar = sqlContent[i + 1] || '';
+
+            // Handle block comments /* ... */
+            if (!inString && !inLineComment) {
+                if (!inBlockComment && char === '/' && nextChar === '*') {
+                    inBlockComment = true;
+                    i++;
+                    continue;
+                }
+                if (inBlockComment && char === '*' && nextChar === '/') {
+                    inBlockComment = false;
+                    i++;
+                    continue;
+                }
+            }
+            if (inBlockComment) continue;
+
+            // Handle line comments -- or #
+            if (!inString && !inBlockComment) {
+                if (!inLineComment && ((char === '-' && nextChar === '-') || char === '#')) {
+                    inLineComment = true;
+                    continue;
+                }
+                if (inLineComment && (char === '\n' || char === '\r')) {
+                    inLineComment = false;
+                    // Don't continue, we might need this newline for the currentStatement or heuristic
+                }
+            }
+            if (inLineComment) continue;
 
             // Handle string literals
             if ((char === "'" || char === '"') && (i === 0 || sqlContent[i - 1] !== '\\')) {
@@ -428,11 +452,21 @@ class SQLParser {
     }
 
     static extractDefaultValue(attributes) {
-        const defaultIndex = attributes.search(/\bDEFAULT\b/i);
+        // Avoid mis-parsing the DEFAULT keyword inside GENERATED ... AS IDENTITY clauses
+        const identityMatch = attributes.match(/GENERATED\s+(?:ALWAYS|BY\s+DEFAULT)\s+AS\s+IDENTITY/i);
+        let searchBuffer = attributes;
+        if (identityMatch) {
+            // Mask the identity clause to prevent DEFAULT detection inside it
+            searchBuffer = attributes.replace(identityMatch[0], ' '.repeat(identityMatch[0].length));
+        }
+
+        const defaultIndex = searchBuffer.search(/\bDEFAULT\b/i);
         if (defaultIndex === -1) return { found: false, value: null };
 
         let value = attributes.slice(defaultIndex).replace(/^DEFAULT\s+/i, '').trim();
-        value = value.replace(/\s+(?:ON\s+UPDATE|COMMENT|COLLATE|CHARACTER\s+SET)\b[\s\S]*$/i, '').trim();
+        // Remove trailing attributes
+        value = value.replace(/\s+(?:ON\s+UPDATE|COMMENT|COLLATE|CHARACTER\s+SET|GENERATED|VIRTUAL|STORED|CHECK|INVISIBLE|LOCK|INSTANT)\b[\s\S]*$/i, '').trim();
+        
         return { found: true, value: this.parseValue(this.normalizeSQLExpression(value)) };
     }
 

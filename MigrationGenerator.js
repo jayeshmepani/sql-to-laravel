@@ -8,8 +8,9 @@ class MigrationGenerator {
         const isModern = version >= 9;
         const hasVoid = version >= 10;
 
-        const columns = this.generateColumns(tableData.columns, tableData.foreignKeys, tableData.indexes, options);
-        const indexes = this.generateIndexes(tableData.indexes, tableData.foreignKeys, tableData.columns, true);
+        const morphBases = this.detectMorphs(tableData.columns);
+        const columns = this.generateColumns(tableData.columns, tableData.foreignKeys, tableData.indexes, options, morphBases);
+        const indexes = this.generateIndexes(tableData.indexes, tableData.foreignKeys, tableData.columns, true, morphBases, options);
         
         const body = [columns, indexes].filter(Boolean).join("\n            ");
         const className = `Create${this.formatClassName(tableName)}Table`;
@@ -68,6 +69,29 @@ class ${className} extends Migration
         }
     }
 
+    static detectMorphs(columns) {
+        const morphs = new Set();
+        const nullableMorphs = new Set();
+        const columnNames = Object.keys(columns);
+
+        columnNames.forEach(name => {
+            if (name.endsWith('_id')) {
+                const base = name.slice(0, -3);
+                if (columnNames.includes(`${base}_type`)) {
+                    const idColumn = columns[name];
+                    const typeColumn = columns[`${base}_type`];
+                    if (idColumn.nullable && typeColumn.nullable) {
+                        nullableMorphs.add(base);
+                    } else if (!idColumn.nullable && !typeColumn.nullable) {
+                        morphs.add(base);
+                    }
+                }
+            }
+        });
+
+        return { morphs, nullableMorphs };
+    }
+
     static generateImports() {
         return [
             'use Illuminate\\Database\\Migrations\\Migration;',
@@ -76,15 +100,19 @@ class ${className} extends Migration
         ].join('\n');
     }
 
-    static generateColumns(columns, foreignKeys = [], indexes = [], options = {}) {
+    static generateColumns(columns, foreignKeys = [], indexes = [], options = {}, morphBases = null) {
         const version = Number(options.laravelVersion) || 13;
         const singleColumnFKs = new Map();
         const singleColumnUnique = new Set();
         const singleColumnIndex = new Set();
         const fullTextColumns = new Set();
         const spatialIndexColumns = new Set();
-        const morphs = new Set();
-        const nullableMorphs = new Set();
+        const columnNames = Object.keys(columns);
+        
+        if (!morphBases) {
+            morphBases = this.detectMorphs(columns);
+        }
+        const { morphs, nullableMorphs } = morphBases;
 
         // Parse foreign keys
         foreignKeys.forEach(fk => {
@@ -150,27 +178,17 @@ class ${className} extends Migration
             }
         }
 
-        // Detect polymorphic columns
-        const columnNames = Object.keys(columns);
-        columnNames.forEach(name => {
-            if (name.endsWith('_id')) {
-                const base = name.slice(0, -3);
-                if (columnNames.includes(`${base}_type`)) {
-                    const idColumn = columns[name];
-                    const typeColumn = columns[`${base}_type`];
-                    if (idColumn.nullable && typeColumn.nullable) {
-                        nullableMorphs.add(base);
-                    } else if (!idColumn.nullable && !typeColumn.nullable) {
-                        morphs.add(base);
-                    }
-                }
-            }
-        });
-
         // Detect timestamps and soft deletes
-        const hasCreatedAt = columnNames.includes('created_at');
-        const hasUpdatedAt = columnNames.includes('updated_at');
-        const hasDeletedAt = columnNames.includes('deleted_at');
+        const isTimeType = (name) => {
+            const col = columns[name];
+            if (!col) return false;
+            const t = col.type.toLowerCase();
+            return t.includes('timestamp') || t.includes('datetime');
+        };
+
+        const hasCreatedAt = columnNames.includes('created_at') && isTimeType('created_at');
+        const hasUpdatedAt = columnNames.includes('updated_at') && isTimeType('updated_at');
+        const hasDeletedAt = columnNames.includes('deleted_at') && isTimeType('deleted_at');
 
         const isTzTimestamp = (name) => {
             const col = columns[name];
@@ -206,8 +224,10 @@ class ${className} extends Migration
                 return;
             }
 
-            // Skip if standard timestamps/soft deletes
-            if (columnName === 'created_at' || columnName === 'updated_at' || columnName === 'deleted_at') return;
+            // Skip if standard timestamps/soft deletes that will be handled later
+            if ((columnName === 'created_at' && hasCreatedAt) || 
+                (columnName === 'updated_at' && hasUpdatedAt) || 
+                (columnName === 'deleted_at' && hasDeletedAt)) return;
 
             const fkInfo = singleColumnFKs.get(columnName);
             const isUnique = singleColumnUnique.has(columnName);
@@ -336,6 +356,9 @@ class ${className} extends Migration
             return columnCode + ';';
         }
 
+        const dbDriver = options.dbDriver || 'mysql';
+        const dbVersion = options.dbVersion || '8.0';
+
         // Map SQL types to Laravel column types
         switch (type) {
             case 'int':
@@ -413,10 +436,14 @@ class ${className} extends Migration
                 columnCode = `$table->longText('${escapedColumn}')`;
                 break;
             case 'json':
-                columnCode = `$table->json('${escapedColumn}')`;
-                break;
             case 'jsonb':
-                columnCode = `$table->jsonb('${escapedColumn}')`;
+                if (dbDriver === 'pgsql') {
+                    columnCode = `$table->jsonb('${escapedColumn}')`;
+                } else if (dbDriver === 'sqlite' && parseFloat(dbVersion) < 3.45) {
+                    columnCode = `$table->text('${escapedColumn}')`;
+                } else {
+                    columnCode = `$table->json('${escapedColumn}')`;
+                }
                 break;
             case 'date':
                 columnCode = `$table->date('${escapedColumn}')`;
@@ -492,30 +519,48 @@ class ${className} extends Migration
             case 'multipoint':
             case 'multilinestring':
             case 'multipolygon':
-                const spatialMethod = type === 'linestring' ? 'lineString' : 
-                                    type === 'geometrycollection' ? 'geometryCollection' :
-                                    type === 'multipoint' ? 'multiPoint' :
-                                    type === 'multilinestring' ? 'multiLineString' :
-                                    type === 'multipolygon' ? 'multiPolygon' : type;
-                if (type === 'geography' && version < 11) {
-                    columnCode = `$table->geometry('${escapedColumn}')`;
+                if (version >= 11) {
+                    if (type === 'geography' && dbDriver === 'pgsql') {
+                        columnCode = `$table->geography('${escapedColumn}')`;
+                    } else if (type === 'geometry' || dbDriver === 'mysql' || dbDriver === 'mariadb') {
+                        columnCode = `$table->geometry('${escapedColumn}')`;
+                    } else {
+                        columnCode = `$table->geometry('${escapedColumn}', subtype: '${type}')`;
+                    }
                 } else {
+                    const spatialMethod = type === 'linestring' ? 'lineString' : 
+                                        type === 'geometrycollection' ? 'geometryCollection' :
+                                        type === 'multipoint' ? 'multiPoint' :
+                                        type === 'multilinestring' ? 'multiLineString' :
+                                        type === 'multipolygon' ? 'multiPolygon' : type;
                     columnCode = `$table->${spatialMethod}('${escapedColumn}')`;
                 }
                 break;
             case 'tsvector':
-                columnCode = version >= 12
-                    ? `$table->tsvector('${escapedColumn}')`
-                    : `$table->text('${escapedColumn}')`;
-                break;
-            case 'vector':
-                const dimensions = columnData.length || 3;
-                if (version >= 11) {
-                    columnCode = `$table->vector('${escapedColumn}', ${dimensions})`;
+                if (dbDriver === 'pgsql' && parseFloat(dbVersion) >= 12 && version >= 12) {
+                    columnCode = `$table->tsvector('${escapedColumn}')`;
                 } else {
                     columnCode = `$table->text('${escapedColumn}')`;
                 }
-                break;            default:
+                break;
+            case 'vector':
+                const isSparse = columnName.toLowerCase().includes('sparse') || columnData?.isSparse;
+                const dims = columnData.length || 1536;
+                if (version >= 11) {
+                    if (dbDriver === 'mysql' && parseFloat(dbVersion) >= 8.4) {
+                        columnCode = `$table->vector('${escapedColumn}', ${dims})`;
+                    } else if (dbDriver === 'pgsql' && parseFloat(dbVersion) >= 11) {
+                        columnCode = isSparse && version >= 13 
+                            ? `$table->vectorSparse('${escapedColumn}', ${dims})`
+                            : `$table->vector('${escapedColumn}', ${dims})`;
+                    } else {
+                        columnCode = `$table->text('${escapedColumn}')`;
+                    }
+                } else {
+                    columnCode = `$table->text('${escapedColumn}')`;
+                }
+                break;
+            default:
                 if (columnName === 'remember_token' && (type === 'varchar' || type === 'string')) {
                     return `$table->rememberToken();`;
                 }
@@ -605,6 +650,22 @@ class ${className} extends Migration
             columnCode += '->useCurrentOnUpdate()';
         }
 
+        // Only add charset/collation if they are binary or specific overrides.
+        // We skip the standard utf8mb4_unicode_ci to keep the migrations clean as requested.
+        // Also skip for JSON columns as they are stored as binary and don't support explicit collation.
+        if (type !== 'json' && type !== 'jsonb') {
+            if (columnData.charset && columnData.charset.toLowerCase() !== 'utf8mb4') {
+                 columnCode += `->charset('${this.escapePhpString(columnData.charset)}')`;
+            }
+            
+            if (columnData.collation) {
+                const lowColl = columnData.collation.toLowerCase();
+                if (lowColl.includes('_bin') || (!lowColl.includes('unicode_ci') && !lowColl.includes('general_ci'))) {
+                    columnCode += `->collation('${this.escapePhpString(columnData.collation)}')`;
+                }
+            }
+        }
+
         if (columnData.comment) {
             columnCode += `->comment('${this.escapePhpString(columnData.comment)}')`;
         }
@@ -629,7 +690,7 @@ class ${className} extends Migration
         return columnCode;
     }
 
-    static generateIndexes(indexes = [], foreignKeys = [], columns = {}, modern = false) {
+    static generateIndexes(indexes = [], foreignKeys = [], columns = {}, modern = false, morphBases = { morphs: new Set(), nullableMorphs: new Set() }, options = {}) {
         if ((!indexes || indexes.length === 0) && (!foreignKeys || foreignKeys.length === 0)) {
             return '';
         }
@@ -638,6 +699,20 @@ class ${className} extends Migration
         const autoIncrementColumns = new Set(Object.entries(columns)
             .filter(([, column]) => column.autoIncrement)
             .map(([name]) => name));
+
+        // Helper to check if columns match a morph pair
+        const isMorphIndex = (idxCols) => {
+            if (!modern || idxCols.length !== 2) return false;
+            const [col1, col2] = idxCols;
+            if (col1.endsWith('_type') && col2.endsWith('_id')) {
+                const base1 = col1.slice(0, -5);
+                const base2 = col2.slice(0, -3);
+                if (base1 === base2 && (morphBases.morphs.has(base1) || morphBases.nullableMorphs.has(base1))) {
+                    return true;
+                }
+            }
+            return false;
+        };
 
         // Process primary keys
         const primaryKeyIndex = indexes.find(idx => idx.toUpperCase().includes('PRIMARY KEY'));
@@ -680,6 +755,8 @@ class ${className} extends Migration
 
                     if (modern && idxColumns.length === 1) {
                         // Already handled inline
+                    } else if (isMorphIndex(idxColumns)) {
+                        // Handled by morphs()
                     } else {
                         if (idxColumns.length === 1) {
                             indexStatements.push(`$table->unique('${this.escapePhpString(idxColumns[0])}', '${this.escapePhpString(indexName)}');`);
@@ -743,6 +820,8 @@ class ${className} extends Migration
 
                     if (modern && idxColumns.length === 1) {
                         // Already handled inline
+                    } else if (isMorphIndex(idxColumns)) {
+                        // Handled by morphs()
                     } else {
                         if (idxColumns.length === 1) {
                             indexStatements.push(`$table->index('${this.escapePhpString(idxColumns[0])}', '${this.escapePhpString(indexName)}');`);
