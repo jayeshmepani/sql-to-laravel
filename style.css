@@ -1102,6 +1102,50 @@ pre {
 
     .nav-links {
         display: none;
+
+        &.active {
+            display: flex;
+            flex-direction: column;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            padding: 2rem;
+            gap: 1.25rem;
+            background: color-mix(in oklch, var(--bg-surface) 95%, transparent);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-block-end: 1px solid var(--border);
+            box-shadow: var(--shadow-lg);
+            z-index: 1000;
+            animation: slideDown 250ms var(--ease-out-cubic);
+            text-align: center;
+
+            & .nav-link {
+                padding-block: 0.75rem;
+                font-size: 1.15rem;
+                font-weight: 600;
+                width: 100%;
+                border-radius: var(--radius-sm);
+                transition: all var(--duration-fast) var(--ease-out-cubic);
+
+                &:hover {
+                    background: color-mix(in oklch, var(--color-primary) 8%, transparent);
+                    color: var(--color-primary);
+                }
+            }
+        }
+    }
+
+    @keyframes slideDown {
+        from { 
+            opacity: 0; 
+            transform: translateY(-20px); 
+        }
+        to { 
+            opacity: 1; 
+            transform: translateY(0); 
+        }
     }
 
     .mobile-toggle {
