@@ -438,8 +438,10 @@ class ${className} extends Migration
             case 'json':
             case 'jsonb':
                 if (dbDriver === 'pgsql') {
+                    // PostgreSQL always uses jsonb for optimized performance in Laravel
                     columnCode = `$table->jsonb('${escapedColumn}')`;
                 } else if (dbDriver === 'sqlite' && parseFloat(dbVersion) < 3.45) {
+                    // SQLite added native JSON in 3.38, but Laravel handles it best for 3.45+ (binary JSONB)
                     columnCode = `$table->text('${escapedColumn}')`;
                 } else {
                     columnCode = `$table->json('${escapedColumn}')`;
@@ -523,6 +525,7 @@ class ${className} extends Migration
                     if (type === 'geography' && dbDriver === 'pgsql') {
                         columnCode = `$table->geography('${escapedColumn}')`;
                     } else if (type === 'geometry' || dbDriver === 'mysql' || dbDriver === 'mariadb') {
+                        // Standard MySQL/MariaDB geometry handling
                         columnCode = `$table->geometry('${escapedColumn}')`;
                     } else {
                         columnCode = `$table->geometry('${escapedColumn}', subtype: '${type}')`;
@@ -548,6 +551,9 @@ class ${className} extends Migration
                 const dims = columnData.length || 1536;
                 if (version >= 11) {
                     if (dbDriver === 'mysql' && parseFloat(dbVersion) >= 8.4) {
+                        columnCode = `$table->vector('${escapedColumn}', ${dims})`;
+                    } else if (dbDriver === 'mariadb' && parseFloat(dbVersion) >= 11.7) {
+                        // MariaDB introduced native Vector support specifically in v11.7
                         columnCode = `$table->vector('${escapedColumn}', ${dims})`;
                     } else if (dbDriver === 'pgsql' && parseFloat(dbVersion) >= 11) {
                         columnCode = isSparse && version >= 13 
