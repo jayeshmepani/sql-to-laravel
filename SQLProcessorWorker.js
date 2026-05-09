@@ -15,7 +15,7 @@ self.onmessage = event => {
 
         if (options.generateSeeders) {
             self.postMessage({ type: 'progress', progress: 45, message: 'Generating seeders...' });
-            result.seedersData = SeederGenerator.generateAllSeeders(sqlContent);
+            result.seedersData = SeederGenerator.generateAllSeeders(sqlContent, parsed);
         }
 
         if (options.generateMigrations) {

@@ -59,14 +59,15 @@ class SQLParser {
 
     static splitIntoStatements(sqlContent) {
         const statements = [];
-        let currentStatement = '';
+        const currentStatementParts = [];
         let inString = false;
         let stringChar = '';
         let parenDepth = 0;
         let inLineComment = false;
         let inBlockComment = false;
 
-        for (let i = 0; i < sqlContent.length; i++) {
+        const len = sqlContent.length;
+        for (let i = 0; i < len; i++) {
             const char = sqlContent[i];
             const nextChar = sqlContent[i + 1] || '';
 
@@ -93,7 +94,6 @@ class SQLParser {
                 }
                 if (inLineComment && (char === '\n' || char === '\r')) {
                     inLineComment = false;
-                    // Don't continue, we might need this newline for the currentStatement or heuristic
                 }
             }
             if (inLineComment) continue;
@@ -101,6 +101,7 @@ class SQLParser {
             // Handle string literals — correctly handle escaped backslashes
             if ((char === "'" || char === '"')) {
                 let backslashCount = 0;
+                // Optimization: only check backslashes if the character could be an end quote
                 for (let j = i - 1; j >= 0 && sqlContent[j] === '\\'; j--) {
                     backslashCount++;
                 }
@@ -121,34 +122,38 @@ class SQLParser {
                 else if (char === ')') parenDepth--;
             }
 
-            currentStatement += char;
+            currentStatementParts.push(char);
 
             // If we encounter a semicolon outside of a string and at depth 0
             if (char === ';' && !inString && parenDepth === 0) {
-                const trimmedStatement = currentStatement.trim();
-                if (trimmedStatement && trimmedStatement !== ';') {
-                    statements.push(trimmedStatement);
+                const stmt = currentStatementParts.join('').trim();
+                if (stmt && stmt !== ';') {
+                    statements.push(stmt);
                 }
-                currentStatement = '';
+                currentStatementParts.length = 0;
             }
             // Heuristic for missing semicolons: if we see CREATE TABLE or INSERT INTO at depth 0 
             // and the current buffer has significant content, it might be a new statement.
-            else if (!inString && parenDepth === 0 && i < sqlContent.length - 15) {
-                const nextPart = sqlContent.slice(i + 1).trimStart().toUpperCase();
-                if (nextPart.startsWith('CREATE TABLE') || nextPart.startsWith('INSERT INTO')) {
-                    const trimmedStatement = currentStatement.trim();
-                    if (trimmedStatement) {
-                        statements.push(trimmedStatement);
-                        currentStatement = '';
+            // OPTIMIZATION: Use a small slice (100 chars) for lookahead instead of slicing to the end.
+            else if (!inString && parenDepth === 0 && i < len - 15) {
+                // Peek ahead only if current char is a potential statement boundary (like newline or semicolon-less gap)
+                if (char === '\n' || char === '\r' || char === ' ') {
+                    const peek = sqlContent.slice(i + 1, i + 100).trimStart().toUpperCase();
+                    if (peek.startsWith('CREATE TABLE') || peek.startsWith('INSERT INTO')) {
+                        const stmt = currentStatementParts.join('').trim();
+                        if (stmt) {
+                            statements.push(stmt);
+                            currentStatementParts.length = 0;
+                        }
                     }
                 }
             }
         }
 
         // Add the last statement if it exists
-        const trimmedStatement = currentStatement.trim();
-        if (trimmedStatement && trimmedStatement !== ';') {
-            statements.push(trimmedStatement);
+        const lastStmt = currentStatementParts.join('').trim();
+        if (lastStmt && lastStmt !== ';') {
+            statements.push(lastStmt);
         }
 
         return statements.filter(stmt => stmt.trim().length > 0);
@@ -497,46 +502,53 @@ class SQLParser {
 
         // Extract all VALUES sets
         const data = [];
-        let valuesContent = statement.substring(statement.toUpperCase().indexOf('VALUES') + 'VALUES'.length);
+        const valuesIdx = statement.toUpperCase().indexOf('VALUES');
+        if (valuesIdx === -1) return { tableName, insertColumns: columns, data };
+        
+        const valuesContent = statement.substring(valuesIdx + 6);
 
         // Split the values content into individual value sets
-        let currentSet = '';
         let inString = false;
         let stringChar = '';
         let parenthesesDepth = 0;
+        let setStartIdx = -1;
 
-        for (let i = 0; i < valuesContent.length; i++) {
+        const len = valuesContent.length;
+        for (let i = 0; i < len; i++) {
             const char = valuesContent[i];
 
-            // Handle quotes
-            if ((char === "'" || char === '"') && (i === 0 || valuesContent[i-1] !== '\\')) {
+            // Handle quotes — simpler check for common cases
+            if (char === "'" || char === '"') {
                 if (!inString) {
                     inString = true;
                     stringChar = char;
                 } else if (char === stringChar) {
-                    inString = false;
+                    // Check for escaped quote
+                    let backslashCount = 0;
+                    for (let j = i - 1; j >= 0 && valuesContent[j] === '\\'; j--) {
+                        backslashCount++;
+                    }
+                    if (backslashCount % 2 === 0) {
+                        inString = false;
+                    }
                 }
             }
 
             // Track parentheses depth
             if (!inString) {
-                if (char === '(') parenthesesDepth++;
-                if (char === ')') {
+                if (char === '(') {
+                    if (parenthesesDepth === 0) setStartIdx = i;
+                    parenthesesDepth++;
+                }
+                else if (char === ')') {
                     parenthesesDepth--;
-                    if (parenthesesDepth === 0) {
-                        currentSet += char;
-                        // Extract content between parentheses
-                        const valueSet = currentSet.match(/\(([^]*)\)/);
-                        if (valueSet) {
-                            data.push(this.parseSQLValueList(valueSet[1]));
-                        }
-                        currentSet = '';
-                        continue;
+                    if (parenthesesDepth === 0 && setStartIdx !== -1) {
+                        const valueSet = valuesContent.substring(setStartIdx + 1, i);
+                        data.push(this.parseSQLValueList(valueSet));
+                        setStartIdx = -1;
                     }
                 }
             }
-
-            currentSet += char;
         }
 
         return { tableName, insertColumns: columns, data };
@@ -556,42 +568,48 @@ class SQLParser {
 
     static parseSQLValueList(valueListStr) {
         const values = [];
-        let currentValue = '';
         let inString = false;
         let stringChar = '';
         let parenthesesDepth = 0;
+        let valStartIdx = 0;
 
-        for (let i = 0; i < valueListStr.length; i++) {
+        const len = valueListStr.length;
+        for (let i = 0; i < len; i++) {
             const char = valueListStr[i];
 
             // Handle quotes
-            if ((char === "'" || char === '"') && (i === 0 || valueListStr[i-1] !== '\\')) {
+            if (char === "'" || char === '"') {
                 if (!inString) {
                     inString = true;
                     stringChar = char;
                 } else if (char === stringChar) {
-                    inString = false;
+                    // Check for escaped quote
+                    let backslashCount = 0;
+                    for (let j = i - 1; j >= 0 && valueListStr[j] === '\\'; j--) {
+                        backslashCount++;
+                    }
+                    if (backslashCount % 2 === 0) {
+                        inString = false;
+                    }
                 }
             }
 
             // Track parentheses depth when not in a string
             if (!inString) {
                 if (char === '(') parenthesesDepth++;
-                if (char === ')') parenthesesDepth--;
+                else if (char === ')') parenthesesDepth--;
             }
 
             // Only split on comma if we're not in a string and not inside parentheses
             if (char === ',' && !inString && parenthesesDepth === 0) {
-                values.push(this.parseValue(currentValue.trim()));
-                currentValue = '';
-            } else {
-                currentValue += char;
+                values.push(this.parseValue(valueListStr.substring(valStartIdx, i).trim()));
+                valStartIdx = i + 1;
             }
         }
 
-        // Add the last value if any
-        if (currentValue.trim()) {
-            values.push(this.parseValue(currentValue.trim()));
+        // Add the last value
+        if (valStartIdx < len) {
+            values.push(this.parseValue(valueListStr.substring(valStartIdx).trim()));
         }
 
         return values;

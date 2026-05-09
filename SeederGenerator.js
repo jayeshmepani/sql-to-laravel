@@ -248,14 +248,14 @@ class DatabaseSeeder extends Seeder
         return sorted;
     }
 
-    static generateAllSeeders(sqlContent) {
+    static generateAllSeeders(sqlContent, preParsed = null) {
         const result = {
             seeders: {},
             databaseSeeder: null
         };
 
-        // Parse the SQL content
-        const parsedSQL = SQLParser.parseSQLContent(sqlContent);
+        // Parse the SQL content if not already provided
+        const parsedSQL = preParsed || SQLParser.parseSQLContent(sqlContent);
         const tablesWithData = [];
 
         // Find table dependencies

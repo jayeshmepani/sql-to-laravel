@@ -202,6 +202,7 @@
         display: flex;
         flex-direction: column;
         gap: 2rem;
+        min-inline-size: 0; /* Critical for grid children to prevent overflow */
     }
 }
 
@@ -413,8 +414,8 @@
     }
 
     .results-selector {
-        max-inline-size: 100%;
-        margin-block-end: 1rem;
+        max-inline-size: 600px;
+        margin-block-end: 1.5rem;
     }
 
     /* ----------------------------------------------------------
@@ -603,7 +604,6 @@
     /* Fallback baseline for all browsers */
     .custom-select {
         inline-size: 100%;
-        max-inline-size: 360px;
         font-family: inherit;
         font-size: 0.95rem;
         color: var(--text-main);
@@ -994,6 +994,7 @@
         border-radius: var(--radius);
         overflow: hidden;
         margin-block-start: 1.5rem;
+        min-inline-size: 0; /* Prevent layout push */
     }
 
     .code-header {
@@ -1032,7 +1033,7 @@
         font-family: 'Fira Code', ui-monospace, 'Cascadia Code', Consolas, monospace;
         font-size: 0.9rem;
         overflow-x: auto;
-        white-space: pre-wrap;
+        white-space: pre; /* Better for code: preserves formatting and enables scrollbar */
 
         & code {
             font-family: inherit;
