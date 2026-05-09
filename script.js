@@ -639,26 +639,33 @@ class SQLConverter {
     }
 
     handleWorkerMessage(data) {
-        if (data.type === 'progress') this.updateProgress(data.progress, data.message);
-        else if (data.type === 'result') {
-            this.tables = data.result.tables;
-            this.seeders = data.result.seedersData || {};
-            
-            const options = {
-                laravelVersion: this.getSelectedLaravelVersion(),
-                dbDriver: this.dbDriverSelect.value,
-                dbVersion: this.dbVersionSelect.value
-            };
-
-            if (this.generateMigrationsCheckbox.checked) {
-                this.migrations = this.generateMigrations(this.tables, options);
-            }
+        if (data.type === 'progress') {
+            this.updateProgress(data.progress, data.message);
+        } else if (data.type === 'metadata') {
+            // Pre-initialize results
+            this.migrations = {};
+            this.seeders = { seeders: {}, databaseSeeder: null };
+            this.updateProgress(20, 'Parsing complete. Building results...');
+        } else if (data.type === 'seeder-main') {
+            this.seeders.databaseSeeder = data.content;
+        } else if (data.type === 'seeder-item') {
+            this.seeders.seeders[data.tableName] = data.content;
             this.populateSeederSelector(this.seeders);
+        } else if (data.type === 'migration-item') {
+            this.migrations[data.tableName] = data.content;
             this.populateMigrationSelector(this.migrations);
-            this.showResults({ generateMigrations: this.generateMigrationsCheckbox.checked, generateSeeders: this.generateSeedersCheckbox.checked });
+        } else if (data.type === 'complete') {
+            const options = {
+                generateMigrations: this.generateMigrationsCheckbox.checked,
+                generateSeeders: this.generateSeedersCheckbox.checked
+            };
+            this.showResults(options);
             this.updateProgress(100, 'Generation Complete!');
             if (this.resolveWorker) this.resolveWorker();
-        } else if (data.type === 'error') { alert(`Worker Error: ${data.error}`); this.updateProgress(0); }
+        } else if (data.type === 'error') {
+            alert(`Worker Error: ${data.error}`);
+            this.updateProgress(0);
+        }
     }
 }
 
