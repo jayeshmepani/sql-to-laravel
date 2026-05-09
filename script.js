@@ -86,6 +86,33 @@ class SQLConverter {
         this.progressContainer = document.getElementById('progressContainer');
         this.progressBar = document.getElementById('progressBar');
         this.progressText = document.getElementById('progressText');
+
+        // Setup Search filtering
+        this.setupSearchFiltering();
+    }
+
+    setupSearchFiltering() {
+        const searchInputs = document.querySelectorAll('.select-search');
+        searchInputs.forEach(input => {
+            // Prevent dropdown from closing when clicking search
+            input.addEventListener('click', (e) => e.stopPropagation());
+            input.addEventListener('keydown', (e) => e.stopPropagation());
+            
+            input.addEventListener('input', (e) => {
+                const term = e.target.value.toLowerCase();
+                const select = e.target.closest('select');
+                const options = select.querySelectorAll('option');
+                
+                options.forEach(opt => {
+                    const text = opt.textContent.toLowerCase();
+                    opt.hidden = term && !text.includes(term);
+                    // Standard select doesn't always respect hidden on options, 
+                    // but base-select (modern) does via display logic.
+                    if (opt.hidden) opt.style.display = 'none';
+                    else opt.style.display = 'flex';
+                });
+            });
+        });
     }
 
     attachEventListeners() {

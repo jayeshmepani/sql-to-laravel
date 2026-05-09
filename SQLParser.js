@@ -98,13 +98,21 @@ class SQLParser {
             }
             if (inLineComment) continue;
 
-            // Handle string literals
-            if ((char === "'" || char === '"') && (i === 0 || sqlContent[i - 1] !== '\\')) {
-                if (!inString) {
-                    inString = true;
-                    stringChar = char;
-                } else if (char === stringChar) {
-                    inString = false;
+            // Handle string literals — correctly handle escaped backslashes
+            if ((char === "'" || char === '"')) {
+                let backslashCount = 0;
+                for (let j = i - 1; j >= 0 && sqlContent[j] === '\\'; j--) {
+                    backslashCount++;
+                }
+                const isEscaped = backslashCount % 2 !== 0;
+
+                if (!isEscaped) {
+                    if (!inString) {
+                        inString = true;
+                        stringChar = char;
+                    } else if (char === stringChar) {
+                        inString = false;
+                    }
                 }
             }
 

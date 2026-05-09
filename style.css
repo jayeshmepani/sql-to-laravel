@@ -179,10 +179,29 @@
    ============================================================ */
 @layer layout {
     .container {
-        max-width: 1200px;
+        max-width: 1400px; /* Slightly wider for the 2-column layout */
         margin-inline: auto;
         padding-inline: 1.5rem;
         padding-block: 2rem;
+    }
+
+    .layout-workspace {
+        display: grid;
+        grid-template-columns: 340px 1fr;
+        gap: 2rem;
+        align-items: start;
+        margin-block-start: 1rem;
+    }
+
+    .layout-sidebar {
+        position: sticky;
+        top: 6rem; /* Adjust for navbar height */
+    }
+
+    .layout-main {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
     }
 }
 
@@ -292,7 +311,7 @@
     ---------------------------------------------------------- */
     .app-header {
         text-align: center;
-        padding-block: 4rem 2rem;
+        padding-block: 0 1.1rem;
     }
 
     .app-title {
@@ -353,6 +372,49 @@
         display: flex;
         align-items: center;
         gap: 0.75rem;
+    }
+
+    /* ----------------------------------------------------------
+       Sidebar Specifics
+    ---------------------------------------------------------- */
+    .sidebar-card {
+        padding: 1.5rem;
+    }
+
+    .options-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+        margin-block-end: 1.5rem;
+    }
+
+    .options-grid-sidebar {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .option-card.compact .option-label {
+        padding: 1rem;
+        font-size: 0.9rem;
+    }
+
+    .option-card.compact .option-icon {
+        inline-size: 24px;
+        block-size: 24px;
+        margin-block-end: 0.5rem;
+    }
+
+    .btn-group-sidebar {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr;
+        gap: 0.75rem;
+        margin-block-start: 1rem;
+    }
+
+    .results-selector {
+        max-inline-size: 100%;
+        margin-block-end: 1rem;
     }
 
     /* ----------------------------------------------------------
@@ -569,7 +631,6 @@
             justify-content: space-between;
             gap: 0.5rem;
             inline-size: 100%;
-            max-inline-size: 360px;
             padding: 0.75rem 1rem;
             background: var(--bg-surface);
             color: var(--text-main);
@@ -647,7 +708,9 @@
             min-inline-size: 240px;
             /* margin-top separates picker from trigger button visually */
             margin-block-start: 0.25rem;
-            overflow: hidden;
+            max-block-size: 400px;
+            overflow-y: auto;
+            overflow-x: hidden;
 
             /* Animate open/close via @starting-style + top-layer */
             @media (prefers-reduced-motion: no-preference) {
@@ -715,6 +778,40 @@
             border-radius: 50%;
             background: var(--color-primary);
             flex-shrink: 0;
+        }
+
+        /* Dropdown Search Input */
+        .custom-select .dropdown-search-container {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            display: block;
+            background: var(--bg-surface);
+            padding: 0.5rem;
+            margin: 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .custom-select .select-search {
+            inline-size: 100%;
+            padding: 0.625rem 0.875rem;
+            background: var(--bg-subtle);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color var(--duration-fast) ease;
+
+            &::placeholder {
+                color: var(--text-muted);
+            }
+
+            &:focus {
+                border-color: var(--color-primary);
+                background: var(--bg-surface);
+            }
         }
 
         /* Option icon */
@@ -947,8 +1044,8 @@
     ---------------------------------------------------------- */
     .dev-footer {
         text-align: center;
-        margin-block-start: 4rem;
-        padding-block: 3rem;
+        margin-block-start: 2rem;
+        padding-block: 2rem 0;
         border-block-start: 1px solid var(--border);
 
         & p {
@@ -1059,15 +1156,15 @@ pre {
 /* Picker dropdown scrollbar */
 .custom-select::picker(select) {
     scrollbar-width: thin;
-    scrollbar-color: color-mix(in oklch, var(--color-primary) 40%, var(--border)) transparent;
+    scrollbar-color: var(--color-primary) transparent;
 }
 
 .custom-select::picker(select)::-webkit-scrollbar {
-    width: 4px;
+    width: 6px;
 }
 
 .custom-select::picker(select)::-webkit-scrollbar-thumb {
-    background: color-mix(in oklch, var(--color-primary) 40%, var(--border));
+    background: var(--color-primary);
     border-radius: 100px;
 }
 
@@ -1095,6 +1192,20 @@ pre {
    (Media query used here because this is a true viewport-level
     concern, not a component layout concern)
    ============================================================ */
+@media (max-width: 992px) {
+    .layout-workspace {
+        grid-template-columns: 1fr;
+    }
+
+    .layout-sidebar {
+        position: static;
+    }
+
+    .btn-group-sidebar {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
 @media (max-width: 768px) {
     .app-title {
         font-size: 1.75rem;

@@ -43,14 +43,6 @@
     <meta property="og:site_name" content="SQL to Laravel Generator">
     <meta property="og:locale" content="en_US">
 
-    <!-- Twitter/X Card -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="SQL to Laravel Migration Generator">
-    <meta name="twitter:description"
-        content="Transform SQL dumps into modern Laravel migration and seeder files instantly.">
-    <meta name="twitter:image" content="https://jayeshmepani.github.io/sql-to-laravel/social-preview.png">
-    <meta name="twitter:creator" content="@jayeshmepani">
-
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -138,303 +130,308 @@
 
     <div class="container">
         <header class="app-header">
-            <h1 class="app-title">SQL to Laravel Generator</h1>
-            <p class="app-subtitle">Transform your SQL database dumps into clean, modern Laravel 11, 12, or 13+
-                migrations and seeders instantly. Developed by <strong>Jayesh Mepani</strong>.</p>
+            <h1 class="app-title">SQL to Laravel</h1>
+            <p class="app-subtitle">Transform SQL dumps into clean Laravel migrations and seeders instantly.</p>
         </header>
 
-        <main id="main-content">
-            <!-- Upload Section -->
-            <section class="card" aria-labelledby="upload-heading">
-                <h2 id="upload-heading" class="section-title">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                        aria-hidden="true" focusable="false">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="17 8 12 3 7 8"/>
-                        <line x1="12" y1="3" x2="12" y2="15"/>
-                    </svg>
-                    Upload SQL Files
-                </h2>
-
-                <!-- File input is associated via label[for] -->
-                <input type="file" id="sqlFileInput" accept=".sql" class="visually-hidden" multiple
-                    aria-label="Upload SQL files">
-
-                <div id="uploadArea" class="upload-zone" role="region"
-                    aria-label="File drop zone">
-                    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-                        aria-hidden="true" focusable="false">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="17 8 12 3 7 8"/>
-                        <line x1="12" y1="3" x2="12" y2="15"/>
-                    </svg>
-                    <div class="upload-text">
-                        <p class="upload-title">Drop your SQL files here</p>
-                        <p class="upload-subtitle">All processing is done locally for complete privacy</p>
-                        <label for="sqlFileInput" class="btn btn-primary">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round" aria-hidden="true" focusable="false">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="17 8 12 3 7 8"/>
-                                <line x1="12" y1="3" x2="12" y2="15"/>
-                            </svg>
-                            Browse Files
-                        </label>
-                    </div>
-                </div>
-
-                <div id="fileInfo" class="file-info" hidden>
-                    <div class="file-header">
-                        <h3>Selected Files: <span id="fileCount">0</span></h3>
-                        <button id="removeAllFiles" class="remove-btn" aria-label="Clear all files">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                aria-hidden="true" focusable="false">
-                                <polyline points="3 6 5 6 21 6"/>
-                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                                <line x1="10" y1="11" x2="10" y2="17"/>
-                                <line x1="14" y1="11" x2="14" y2="17"/>
-                            </svg>
-                        </button>
-                    </div>
-                    <div id="fileList" role="list" aria-label="Selected SQL files"></div>
-                </div>
-            </section>
-
-            <!-- Options Section -->
-            <section class="card" aria-labelledby="options-heading">
-                <h2 id="options-heading" class="section-title">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                        aria-hidden="true" focusable="false">
-                        <circle cx="12" cy="12" r="3"/>
-                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
-                    </svg>
-                    Generation Options
-                </h2>
-
-                <div class="options-row">
-                    <div class="version-selector">
-                        <label for="laravelVersion">Laravel Version</label>
-                        <select id="laravelVersion" class="custom-select">
-                            <button>
-                                <selectedcontent></selectedcontent>
-                                <svg class="select-arrow" width="16" height="16" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2.5"
-                                    stroke-linecap="round" stroke-linejoin="round"
-                                    aria-hidden="true" focusable="false">
-                                    <polyline points="6 9 12 15 18 9"/>
-                                </svg>
-                            </button>
-                            <option value="13">Laravel 13+ (Latest)</option>
-                            <option value="12">Laravel 12</option>
-                            <option value="11">Laravel 11</option>
-                        </select>
-                    </div>
-
-                    <div class="version-selector">
-                        <label for="dbDriver">Database Driver</label>
-                        <select id="dbDriver" class="custom-select">
-                            <button>
-                                <selectedcontent></selectedcontent>
-                                <svg class="select-arrow" width="16" height="16" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2.5"
-                                    stroke-linecap="round" stroke-linejoin="round"
-                                    aria-hidden="true" focusable="false">
-                                    <polyline points="6 9 12 15 18 9"/>
-                                </svg>
-                            </button>
-                            <option value="mysql">
-                                <svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                                </svg>
-                                <span>MySQL</span>
-                            </option>
-                            <option value="pgsql">
-                                <svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                                </svg>
-                                <span>PostgreSQL</span>
-                            </option>
-                            <option value="mariadb">
-                                <svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-                                    <line x1="8" y1="21" x2="16" y2="21"/>
-                                    <line x1="12" y1="17" x2="12" y2="21"/>
-                                </svg>
-                                <span>MariaDB</span>
-                            </option>
-                            <option value="sqlite">
-                                <svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-                                </svg>
-                                <span>SQLite</span>
-                            </option>
-                        </select>
-                    </div>
-
-                    <div class="version-selector">
-                        <label for="dbVersion">DB Version</label>
-                        <select id="dbVersion" class="custom-select">
-                            <button>
-                                <selectedcontent></selectedcontent>
-                                <svg class="select-arrow" width="16" height="16" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2.5"
-                                    stroke-linecap="round" stroke-linejoin="round"
-                                    aria-hidden="true" focusable="false">
-                                    <polyline points="6 9 12 15 18 9"/>
-                                </svg>
-                            </button>
-                        </select>
-                    </div>
-                </div>
-
-                <fieldset class="options-fieldset">
-                    <legend class="options-legend">Output types</legend>
-                    <div class="options-grid">
-                        <div class="option-card">
-                            <input type="checkbox" id="generateMigrations" checked>
-                            <label for="generateMigrations" class="option-label">
-                                <svg class="option-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                    aria-hidden="true" focusable="false">
-                                    <line x1="6" y1="3" x2="6" y2="15"/>
-                                    <circle cx="18" cy="6" r="3"/>
-                                    <circle cx="6" cy="18" r="3"/>
-                                    <path d="M18 9a9 9 0 0 1-9 9"/>
-                                </svg>
-                                <span>Migrations</span>
-                            </label>
-                        </div>
-                        <div class="option-card">
-                            <input type="checkbox" id="generateSeeders">
-                            <label for="generateSeeders" class="option-label">
-                                <svg class="option-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                    aria-hidden="true" focusable="false">
-                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                                </svg>
-                                <span>Seeders</span>
-                            </label>
-                        </div>
-                    </div>
-                </fieldset>
-
-                <div class="btn-group">
-                    <button id="generateBtn" class="btn btn-primary" disabled
-                        aria-describedby="generate-hint">
+        <main id="main-content" class="layout-workspace">
+            <!-- Sidebar: Generation Options -->
+            <aside class="layout-sidebar">
+                <section class="card sidebar-card" aria-labelledby="options-heading">
+                    <h2 id="options-heading" class="section-title">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                             aria-hidden="true" focusable="false">
-                            <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
-                            <path d="m5 3 1 1"/><path d="m19 3-1 1"/>
-                            <path d="m19 19-1-1"/><path d="m5 19 1-1"/>
+                            <circle cx="12" cy="12" r="3"/>
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
                         </svg>
-                        Generate
-                    </button>
-                    <button id="exportBtn" class="btn btn-secondary" disabled>
+                        Settings
+                    </h2>
+
+                    <div class="options-stack">
+                        <div class="version-selector">
+                            <label for="laravelVersion">Laravel Version</label>
+                            <select id="laravelVersion" class="custom-select">
+                                <button>
+                                    <selectedcontent></selectedcontent>
+                                    <svg class="select-arrow" width="16" height="16" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2.5"
+                                        stroke-linecap="round" stroke-linejoin="round"
+                                        aria-hidden="true" focusable="false">
+                                        <polyline points="6 9 12 15 18 9"/>
+                                    </svg>
+                                </button>
+                                <option value="13">Laravel 13+ (Latest)</option>
+                                <option value="12">Laravel 12</option>
+                                <option value="11">Laravel 11</option>
+                            </select>
+                        </div>
+
+                        <div class="version-selector">
+                            <label for="dbDriver">Database Driver</label>
+                            <select id="dbDriver" class="custom-select">
+                                <button>
+                                    <selectedcontent></selectedcontent>
+                                    <svg class="select-arrow" width="16" height="16" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2.5"
+                                        stroke-linecap="round" stroke-linejoin="round"
+                                        aria-hidden="true" focusable="false">
+                                        <polyline points="6 9 12 15 18 9"/>
+                                    </svg>
+                                </button>
+                                <option value="mysql">
+                                    <svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                    </svg>
+                                    <span>MySQL</span>
+                                </option>
+                                <option value="pgsql">
+                                    <svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                                    </svg>
+                                    <span>PostgreSQL</span>
+                                </option>
+                                <option value="mariadb">
+                                    <svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                                        <line x1="8" y1="21" x2="16" y2="21"/>
+                                        <line x1="12" y1="17" x2="12" y2="21"/>
+                                    </svg>
+                                    <span>MariaDB</span>
+                                </option>
+                                <option value="sqlite">
+                                    <svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                                    </svg>
+                                    <span>SQLite</span>
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="version-selector">
+                            <label for="dbVersion">DB Version</label>
+                            <select id="dbVersion" class="custom-select">
+                                <button>
+                                    <selectedcontent></selectedcontent>
+                                    <svg class="select-arrow" width="16" height="16" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2.5"
+                                        stroke-linecap="round" stroke-linejoin="round"
+                                        aria-hidden="true" focusable="false">
+                                        <polyline points="6 9 12 15 18 9"/>
+                                    </svg>
+                                </button>
+                            </select>
+                        </div>
+                    </div>
+
+                    <fieldset class="options-fieldset">
+                        <legend class="options-legend">Output types</legend>
+                        <div class="options-grid-sidebar">
+                            <div class="option-card compact">
+                                <input type="checkbox" id="generateMigrations" checked>
+                                <label for="generateMigrations" class="option-label">
+                                    <svg class="option-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                        aria-hidden="true" focusable="false">
+                                        <line x1="6" y1="3" x2="6" y2="15"/>
+                                        <circle cx="18" cy="6" r="3"/>
+                                        <circle cx="6" cy="18" r="3"/>
+                                        <path d="M18 9a9 9 0 0 1-9 9"/>
+                                    </svg>
+                                    <span>Migrations</span>
+                                </label>
+                            </div>
+                            <div class="option-card compact">
+                                <input type="checkbox" id="generateSeeders">
+                                <label for="generateSeeders" class="option-label">
+                                    <svg class="option-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                        aria-hidden="true" focusable="false">
+                                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                                    </svg>
+                                    <span>Seeders</span>
+                                </label>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <div class="btn-group-sidebar">
+                        <button id="generateBtn" class="btn btn-primary" disabled
+                            aria-describedby="generate-hint">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                aria-hidden="true" focusable="false">
+                                <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                            </svg>
+                            Generate
+                        </button>
+                        <button id="exportBtn" class="btn btn-secondary" disabled>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                aria-hidden="true" focusable="false">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            ZIP
+                        </button>
+                    </div>
+                    <p id="generate-hint" class="hint-text">Upload SQL to start.</p>
+                </section>
+            </aside>
+
+            <!-- Main Workspace: Upload & Results -->
+            <div class="layout-main">
+                <section class="card" aria-labelledby="upload-heading">
+                    <h2 id="upload-heading" class="section-title">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                             aria-hidden="true" focusable="false">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="7 10 12 15 17 10"/>
-                            <line x1="12" y1="15" x2="12" y2="3"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
                         </svg>
-                        Export as ZIP
-                    </button>
-                </div>
-                <p id="generate-hint" class="hint-text">Upload at least one SQL file to enable generation.</p>
+                        Upload SQL Files
+                    </h2>
 
-                <div id="progressContainer" class="progress-container" hidden>
-                    <div class="progress-bar-wrapper" role="progressbar"
-                        aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
-                        aria-label="Generation progress">
-                        <div id="progressBar" class="progress-bar"></div>
-                    </div>
-                    <p id="progressText" class="progress-text" aria-live="polite"></p>
-                </div>
-            </section>
+                    <input type="file" id="sqlFileInput" accept=".sql" class="visually-hidden" multiple
+                        aria-label="Upload SQL files">
 
-            <!-- Results Section -->
-            <section id="resultContainer" hidden aria-labelledby="results-heading">
-                <h2 id="results-heading" class="visually-hidden">Generated Results</h2>
-
-                <!-- Accessible tab pattern -->
-                <div class="tabs-container" role="tablist" aria-label="Output type">
-                    <button id="migrationsTabBtn" class="tab-btn active" role="tab"
-                        aria-selected="true" aria-controls="migrationsTab">Migrations</button>
-                    <button id="seedersTabBtn" class="tab-btn" role="tab"
-                        aria-selected="false" aria-controls="seedersTab" tabindex="-1">Seeders</button>
-                </div>
-
-                <!-- Seeders Tab -->
-                <div id="seedersTab" role="tabpanel" aria-labelledby="seedersTabBtn" hidden>
-                    <div class="version-selector">
-                        <label for="seederSelect">Select Seeder:</label>
-                        <select id="seederSelect" class="custom-select">
-                            <button>
-                                <selectedcontent></selectedcontent>
-                                <svg class="select-arrow" width="16" height="16" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2.5"
-                                    stroke-linecap="round" stroke-linejoin="round"
-                                    aria-hidden="true" focusable="false">
-                                    <polyline points="6 9 12 15 18 9"/>
-                                </svg>
-                            </button>
-                            <option value="database">DatabaseSeeder</option>
-                        </select>
-                    </div>
-                    <div class="code-container">
-                        <div class="code-header">
-                            <span id="currentSeederName" aria-live="polite">Seeder Preview</span>
-                            <button class="copy-btn" data-target="seederCode" aria-label="Copy seeder code">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    <div id="uploadArea" class="upload-zone" role="region"
+                        aria-label="File drop zone">
+                        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                            aria-hidden="true" focusable="false">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        <div class="upload-text">
+                            <p class="upload-title">Drop your SQL files here</p>
+                            <p class="upload-subtitle">Local processing — 100% Privacy</p>
+                            <label for="sqlFileInput" class="btn btn-primary">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
                                     stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                     stroke-linejoin="round" aria-hidden="true" focusable="false">
-                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="17 8 12 3 7 8"/>
+                                    <line x1="12" y1="3" x2="12" y2="15"/>
+                                </svg>
+                                Browse Files
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="fileInfo" class="file-info" hidden>
+                        <div class="file-header">
+                            <h3>Selected Files: <span id="fileCount">0</span></h3>
+                            <button id="removeAllFiles" class="remove-btn" aria-label="Clear all files">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                    aria-hidden="true" focusable="false">
+                                    <polyline points="3 6 5 6 21 6"/>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                    <line x1="10" y1="11" x2="10" y2="17"/>
+                                    <line x1="14" y1="11" x2="14" y2="17"/>
                                 </svg>
                             </button>
                         </div>
-                        <pre id="seederCode"><code>// Generated code will appear here</code></pre>
+                        <div id="fileList" role="list" aria-label="Selected SQL files"></div>
                     </div>
-                </div>
 
-                <!-- Migrations Tab -->
-                <div id="migrationsTab" role="tabpanel" aria-labelledby="migrationsTabBtn">
-                    <div class="version-selector">
-                        <label for="migrationSelect">Select Migration:</label>
-                        <select id="migrationSelect" class="custom-select">
-                            <button>
-                                <selectedcontent></selectedcontent>
-                                <svg class="select-arrow" width="16" height="16" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2.5"
-                                    stroke-linecap="round" stroke-linejoin="round"
-                                    aria-hidden="true" focusable="false">
-                                    <polyline points="6 9 12 15 18 9"/>
-                                </svg>
-                            </button>
-                        </select>
-                    </div>
-                    <div class="code-container">
-                        <div class="code-header">
-                            <span id="currentMigrationName" aria-live="polite">Migration Preview</span>
-                            <button class="copy-btn" data-target="migrationCode" aria-label="Copy migration code">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                    stroke-linejoin="round" aria-hidden="true" focusable="false">
-                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                                </svg>
-                            </button>
+                    <div id="progressContainer" class="progress-container" hidden>
+                        <div class="progress-bar-wrapper" role="progressbar"
+                            aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+                            aria-label="Generation progress">
+                            <div id="progressBar" class="progress-bar"></div>
                         </div>
-                        <pre id="migrationCode"><code>// Generated code will appear here</code></pre>
+                        <p id="progressText" class="progress-text" aria-live="polite"></p>
                     </div>
-                </div>
-            </section>
+                </section>
+
+                <!-- Results Section -->
+                <section id="resultContainer" hidden aria-labelledby="results-heading">
+                    <h2 id="results-heading" class="visually-hidden">Generated Results</h2>
+
+                    <div class="tabs-container" role="tablist" aria-label="Output type">
+                        <button id="migrationsTabBtn" class="tab-btn active" role="tab"
+                            aria-selected="true" aria-controls="migrationsTab">Migrations</button>
+                        <button id="seedersTabBtn" class="tab-btn" role="tab"
+                            aria-selected="false" aria-controls="seedersTab" tabindex="-1">Seeders</button>
+                    </div>
+
+                    <!-- Seeders Tab -->
+                    <div id="seedersTab" role="tabpanel" aria-labelledby="seedersTabBtn" hidden>
+                        <div class="version-selector results-selector">
+                            <label for="seederSelect">Select Seeder:</label>
+                            <select id="seederSelect" class="custom-select">
+                                <button>
+                                    <selectedcontent></selectedcontent>
+                                    <svg class="select-arrow" width="16" height="16" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2.5"
+                                        stroke-linecap="round" stroke-linejoin="round"
+                                        aria-hidden="true" focusable="false">
+                                        <polyline points="6 9 12 15 18 9"/>
+                                    </svg>
+                                </button>
+                                <search class="dropdown-search-container">
+                                    <input type="search" class="select-search" placeholder="Search seeders..." aria-label="Search seeders">
+                                </search>
+                                <option value="database">DatabaseSeeder</option>
+                            </select>
+                        </div>
+                        <div class="code-container">
+                            <div class="code-header">
+                                <span id="currentSeederName" aria-live="polite">Seeder Preview</span>
+                                <button class="copy-btn" data-target="seederCode" aria-label="Copy seeder code">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <pre id="seederCode"><code>// Generated code will appear here</code></pre>
+                        </div>
+                    </div>
+
+                    <!-- Migrations Tab -->
+                    <div id="migrationsTab" role="tabpanel" aria-labelledby="migrationsTabBtn">
+                        <div class="version-selector results-selector">
+                            <label for="migrationSelect">Select Migration:</label>
+                            <select id="migrationSelect" class="custom-select">
+                                <button>
+                                    <selectedcontent></selectedcontent>
+                                    <svg class="select-arrow" width="16" height="16" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2.5"
+                                        stroke-linecap="round" stroke-linejoin="round"
+                                        aria-hidden="true" focusable="false">
+                                        <polyline points="6 9 12 15 18 9"/>
+                                    </svg>
+                                </button>
+                                <search class="dropdown-search-container">
+                                    <input type="search" class="select-search" placeholder="Search migrations..." aria-label="Search migrations">
+                                </search>
+                            </select>
+                        </div>
+                        <div class="code-container">
+                            <div class="code-header">
+                                <span id="currentMigrationName" aria-live="polite">Migration Preview</span>
+                                <button class="copy-btn" data-target="migrationCode" aria-label="Copy migration code">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <pre id="migrationCode"><code>// Generated code will appear here</code></pre>
+                        </div>
+                    </div>
+                </section>
+            </div>
         </main>
 
         <footer class="dev-footer">
