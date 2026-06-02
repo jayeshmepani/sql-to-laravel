@@ -13,6 +13,7 @@ class SQLConverter {
         this.sqlFiles = []; 
         this.worker = null;
         this.tables = null;
+        this.parsed = null;
         this.seeders = {};
         this.migrations = {};
         this.canUseWorkers = this.checkWorkerSupport();
@@ -289,6 +290,7 @@ class SQLConverter {
         this.migrationCode.textContent = '// Generated code will appear here';
         this.seeders = {};
         this.migrations = {};
+        this.parsed = null;
         this.resultContainer.hidden = true;
         
         // Surgical removal of options
@@ -379,6 +381,7 @@ class SQLConverter {
 
         this.updateProgress(40, 'Parsing SQL structure...');
         const parsed = SQLParser.parseSQLContent(processedData);
+        this.parsed = parsed;
         this.tables = parsed.tables;
 
         if (options.generateSeeders) {
@@ -389,7 +392,7 @@ class SQLConverter {
 
         if (options.generateMigrations) {
             this.updateProgress(80, 'Synthesizing migrations...');
-            this.migrations = this.generateMigrations(parsed.tables, options);
+            this.migrations = this.generateMigrations(parsed, options);
             this.populateMigrationSelector(this.migrations);
         }
 
@@ -447,14 +450,19 @@ class SQLConverter {
         return sorted;
     }
 
-    generateMigrations(tables, options) {
+    generateMigrations(parsedOrTables, options) {
+        const parsed = parsedOrTables && parsedOrTables.tables
+            ? parsedOrTables
+            : { tables: parsedOrTables || {}, globalStatements: [] };
         const migrations = {};
-        const sortedTableNames = this.sortTablesByDependency(tables);
+        const sortedTableNames = this.sortTablesByDependency(parsed.tables);
         sortedTableNames.forEach(name => {
             if (name.toLowerCase() === 'migrations') return;
-            const code = MigrationGenerator.generate(name, tables[name], options);
+            const code = MigrationGenerator.generate(name, parsed.tables[name], { ...options, includeRawStatements: false });
             if (code) migrations[name] = code;
         });
+        const auxiliary = MigrationGenerator.generateAuxiliaryMigration(parsed, options);
+        if (auxiliary) migrations.__auxiliary__ = auxiliary;
         return migrations;
     }
 
@@ -472,7 +480,9 @@ class SQLConverter {
             dbVersion: this.dbVersionSelect.value
         };
 
-        this.migrations = this.generateMigrations(this.tables, options);
+        const parsed = this.parsed || SQLParser.parseSQLContent(this.sqlFiles.map(file => file.content).join("\n\n"));
+        this.parsed = parsed;
+        this.migrations = this.generateMigrations(parsed, options);
         this.populateMigrationSelector(this.migrations, selectedMigration);
     }
 
@@ -499,10 +509,19 @@ class SQLConverter {
         const options = this.migrationSelect.querySelectorAll('option');
         options.forEach(opt => opt.remove());
 
-        Object.keys(migrations).forEach(name => {
+        Object.keys(migrations)
+            .sort((a, b) => {
+                if (a === '__auxiliary__') return 1;
+                if (b === '__auxiliary__') return -1;
+                return a.localeCompare(b);
+            })
+            .forEach(name => {
             const opt = document.createElement('option');
             opt.value = name;
-            opt.innerHTML = `<svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="6" y1="3" x2="6" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg><span>${MigrationGenerator.formatClassName(name)}Table</span>`;
+            const label = name === '__auxiliary__'
+                ? 'AuxiliaryMigration'
+                : `${MigrationGenerator.formatClassName(name)}Table`;
+            opt.innerHTML = `<svg class="opt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="6" y1="3" x2="6" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg><span>${label}</span>`;
             this.migrationSelect.appendChild(opt);
         });
         
@@ -539,7 +558,9 @@ class SQLConverter {
         const val = this.migrationSelect.value;
         if (this.migrations[val]) {
             this.migrationCode.textContent = this.migrations[val];
-            this.currentMigrationName.textContent = `${MigrationGenerator.formatClassName(val)}Table.php`;
+            this.currentMigrationName.textContent = val === '__auxiliary__'
+                ? 'AuxiliaryMigration.php'
+                : `${MigrationGenerator.formatClassName(val)}Table.php`;
         }
     }
 
@@ -592,7 +613,8 @@ class SQLConverter {
 
             if (this.generateMigrationsCheckbox.checked) {
                 const parsed = SQLParser.parseSQLContent(combinedSql);
-                this.migrations = this.generateMigrations(parsed.tables, options);
+                this.parsed = parsed;
+                this.migrations = this.generateMigrations(parsed, options);
             }
 
             if (this.seeders.databaseSeeder) {
@@ -608,7 +630,10 @@ class SQLConverter {
                 let ts = Date.now();
                 Object.entries(this.migrations).forEach(([name, code]) => {
                     const dateStr = this.formatDate(ts);
-                    folder.file(`${dateStr}_create_${name}_table.php`, code);
+                    const fileName = name === '__auxiliary__'
+                        ? `${dateStr}_create_auxiliary_sql_objects.php`
+                        : `${dateStr}_create_${name}_table.php`;
+                    folder.file(fileName, code);
                     ts += 1000;
                 });
             }
@@ -632,7 +657,7 @@ class SQLConverter {
     async initWorker() {
         if (this.worker) this.worker.terminate();
         try {
-            this.worker = new Worker('SQLProcessorWorker.js');
+            this.worker = new Worker('js/SQLProcessorWorker.js');
             this.worker.onmessage = (e) => this.handleWorkerMessage(e.data);
             this.worker.onerror = (err) => { console.error('Worker Failure:', err); this.canUseWorkers = false; };
         } catch (e) { this.canUseWorkers = false; }
@@ -645,6 +670,7 @@ class SQLConverter {
             // Pre-initialize results
             this.migrations = {};
             this.seeders = { seeders: {}, databaseSeeder: null };
+            this.parsed = null;
             this.updateProgress(20, 'Parsing complete. Building results...');
         } else if (data.type === 'seeder-main') {
             this.seeders.databaseSeeder = data.content;
@@ -653,6 +679,9 @@ class SQLConverter {
             this.populateSeederSelector(this.seeders);
         } else if (data.type === 'migration-item') {
             this.migrations[data.tableName] = data.content;
+            this.populateMigrationSelector(this.migrations);
+        } else if (data.type === 'auxiliary-item') {
+            this.migrations.__auxiliary__ = data.content;
             this.populateMigrationSelector(this.migrations);
         } else if (data.type === 'complete') {
             const options = {

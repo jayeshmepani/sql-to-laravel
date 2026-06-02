@@ -36,24 +36,34 @@ class FileUtils {
             String(date.getSeconds()).padStart(2, '0');
     }
 
-    static async exportZip(tables, options) {
+    static async exportZip(parsedOrTables, options) {
         if (!window.JSZip) {
             throw new Error('JSZip library not loaded');
         }
 
+        const parsed = parsedOrTables && parsedOrTables.tables
+            ? parsedOrTables
+            : { tables: parsedOrTables || {}, globalStatements: [] };
+        const tables = parsed.tables || {};
         const zip = new JSZip();
         let timestamp = Date.now();
 
         if (options.generateMigrations) {
             const migrationsFolder = zip.folder('migrations');
             Object.entries(tables).forEach(([tableName, table]) => {
-                const migrationCode = MigrationGenerator.generate(tableName, table);
+                const migrationCode = MigrationGenerator.generate(tableName, table, { ...options, includeRawStatements: false });
                 if (migrationCode) {
                     const fileName = `${this.formatTimestamp(timestamp)}_create_${tableName}_table.php`;
                     migrationsFolder.file(fileName, migrationCode);
                     timestamp += 1000;
                 }
             });
+
+            const auxiliaryMigration = MigrationGenerator.generateAuxiliaryMigration(parsed, options);
+            if (auxiliaryMigration) {
+                const fileName = `${this.formatTimestamp(timestamp)}_create_auxiliary_sql_objects.php`;
+                migrationsFolder.file(fileName, auxiliaryMigration);
+            }
         }
 
         if (options.generateSeeders) {

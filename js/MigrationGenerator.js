@@ -1,18 +1,71 @@
 class MigrationGenerator {
-    static generate(tableName, tableData, options = {}) {
-        if (!tableData?.columns || Object.keys(tableData.columns).length === 0) {
-            return null;
-        }
+    static parseIndexDefinition(definition, kind) {
+        const patterns = {
+            unique: /(?:CONSTRAINT\s+(?:`([^`]+)`|"([^"]+)"|'([^']+)'|(\w+))\s+)?UNIQUE\s+(?:(?:KEY|INDEX)\s+)?(?:(?:`([^`]+)`|"([^"]+)"|'([^']+)'|(\w+))\s*)?\(([^)]+)\)/i,
+            fulltext: /FULLTEXT\s+(?:(?:KEY|INDEX)\s+)?(?:(?:`([^`]+)`|"([^"]+)"|'([^']+)'|(\w+))\s*)?\(([^)]+)\)/i,
+            spatial: /SPATIAL\s+(?:(?:KEY|INDEX)\s+)?(?:(?:`([^`]+)`|"([^"]+)"|'([^']+)'|(\w+))\s*)?\(([^)]+)\)/i,
+            index: /(?:KEY|INDEX)\s+(?:`([^`]+)`|"([^"]+)"|'([^']+)'|(\w+))\s*\(([^)]+)\)/i
+        };
 
+        const pattern = patterns[kind];
+        if (!pattern) return null;
+
+        const match = definition.match(pattern);
+        if (!match) return null;
+
+        const columnGroupIndex = kind === 'index' ? 5 : kind === 'unique' ? 9 : 5;
+        const indexName = kind === 'unique'
+            ? (match[5] || match[6] || match[7] || match[8] || match[1] || match[2] || match[3] || match[4] || null)
+            : (match[1] || match[2] || match[3] || match[4] || null);
+        const columns = match[columnGroupIndex].split(',').map(c => c.trim().replace(/[`"']/g, ''));
+
+        return { indexName, columns };
+    }
+
+    static generate(tableName, tableData, options = {}) {
         const version = options.laravelVersion || 13;
         const isModern = version >= 9;
         const hasVoid = version >= 10;
+        const hasColumns = tableData?.columns && Object.keys(tableData.columns).length > 0;
+        const rawStatements = tableData?.rawStatements || [];
+        const includeRawStatements = options.includeRawStatements !== false;
 
-        const morphBases = this.detectMorphs(tableData.columns);
-        const columns = this.generateColumns(tableData.columns, tableData.foreignKeys, tableData.indexes, options, morphBases);
-        const indexes = this.generateIndexes(tableData.indexes, tableData.foreignKeys, tableData.columns, true, morphBases, options);
+        if (!hasColumns && (!includeRawStatements || rawStatements.length === 0)) {
+            return null;
+        }
+
+        const morphBases = this.detectMorphs(tableData.columns || {});
+        const generationOptions = { ...options, tableName };
+        const columns = hasColumns ? this.generateColumns(tableData.columns, tableData.foreignKeys, tableData.indexes, generationOptions, morphBases) : '';
+        const indexes = hasColumns ? this.generateIndexes(tableData.indexes, tableData.foreignKeys, tableData.columns, true, morphBases, generationOptions) : '';
+        const rawBodyStatements = includeRawStatements ? this.generateRawStatements(rawStatements) : '';
+
+        if (!hasColumns) {
+            return `<?php
+
+${this.generateImports()}
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up()${hasVoid ? ': void' : ''}
+    {
+        ${rawBodyStatements}
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down()${hasVoid ? ': void' : ''}
+    {
+        Schema::dropIfExists('${this.escapePhpString(tableName)}');
+    }
+};`;
+        }
         
-        const body = [columns, indexes].filter(Boolean).join("\n            ");
+        const body = [columns, indexes, rawBodyStatements].filter(Boolean).join("\n            ");
         const className = `Create${this.formatClassName(tableName)}Table`;
         const imports = this.generateImports();
 
@@ -69,6 +122,58 @@ class ${className} extends Migration
         }
     }
 
+    static generateAuxiliaryMigration(parsed, options = {}) {
+        const version = options.laravelVersion || 13;
+        const hasVoid = version >= 10;
+        const driver = options.dbDriver || 'mysql';
+        const statements = [];
+
+        Object.entries(parsed?.tables || {}).forEach(([tableName, tableData]) => {
+            for (const stmt of tableData?.rawStatements || []) {
+                if (this.isAuxiliaryStatement(stmt)) {
+                    statements.push({ tableName, statement: stmt.trim().replace(/;$/, '') });
+                }
+            }
+        });
+
+        for (const stmt of parsed?.globalStatements || []) {
+            if (this.isAuxiliaryStatement(stmt)) {
+                statements.push({ tableName: null, statement: stmt.trim().replace(/;$/, '') });
+            }
+        }
+
+        if (statements.length === 0) {
+            return null;
+        }
+
+        const upStatements = statements.map(item => `DB::statement('${this.escapePhpString(item.statement)}');`).join("\n            ");
+        const downStatements = this.generateAuxiliaryDownStatements(statements, driver);
+        const className = 'CreateAuxiliarySqlObjects';
+
+        return `<?php
+
+${this.generateImports()}
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up()${hasVoid ? ': void' : ''}
+    {
+        ${upStatements}
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down()${hasVoid ? ': void' : ''}
+    {
+        ${downStatements || '//' + ' No reverse statements available.'}
+    }
+};`;
+    }
+
     static detectMorphs(columns) {
         const morphs = new Set();
         const nullableMorphs = new Set();
@@ -92,12 +197,103 @@ class ${className} extends Migration
         return { morphs, nullableMorphs };
     }
 
+    static getMorphColumnHelperType(column) {
+        const type = column?.type?.toLowerCase();
+        if (type === 'uuid' || (type === 'char' && column?.length === 36)) {
+            return 'uuid';
+        }
+        if (type === 'ulid' || (type === 'char' && column?.length === 26)) {
+            return 'ulid';
+        }
+        return 'default';
+    }
+
     static generateImports() {
         return [
             'use Illuminate\\Database\\Migrations\\Migration;',
             'use Illuminate\\Database\\Schema\\Blueprint;',
+            'use Illuminate\\Support\\Facades\\DB;',
             'use Illuminate\\Support\\Facades\\Schema;',
         ].join('\n');
+    }
+
+    static generateRawStatements(rawStatements = []) {
+        if (!rawStatements || rawStatements.length === 0) {
+            return '';
+        }
+
+        return rawStatements
+            .map(statement => `DB::statement('${this.escapePhpString(statement)}');`)
+            .join("\n            ");
+    }
+
+    static isAuxiliaryStatement(statement) {
+        const upper = String(statement || '').trim().toUpperCase();
+        return (
+            upper.startsWith('CREATE TABLE') ||
+            upper.startsWith('CREATE VIEW') ||
+            upper.startsWith('CREATE TRIGGER') ||
+            upper.startsWith('CREATE INDEX') ||
+            upper.startsWith('CREATE UNIQUE INDEX')
+        );
+    }
+
+    static generateAuxiliaryDownStatements(statements, driver = 'mysql') {
+        const downStatements = [];
+
+        for (let i = statements.length - 1; i >= 0; i--) {
+            const { statement } = statements[i];
+            const down = this.reverseAuxiliaryStatement(statement, driver);
+            if (down) {
+                downStatements.push(`DB::statement('${this.escapePhpString(down)}');`);
+            }
+        }
+
+        return downStatements.join("\n            ");
+    }
+
+    static reverseAuxiliaryStatement(statement, driver = 'mysql') {
+        const normalized = String(statement || '').trim().replace(/;$/, '');
+
+        const createTableAs = normalized.match(/^CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:`([^`]+)`|"([^"]+)"|'([^']+)'|([^\s(]+))\s+AS\s+SELECT/i);
+        if (createTableAs) {
+            const tableName = createTableAs[1] || createTableAs[2] || createTableAs[3] || createTableAs[4];
+            return `DROP TABLE IF EXISTS ${tableName}`;
+        }
+
+        const createView = normalized.match(/^CREATE\s+VIEW\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:`([^`]+)`|"([^"]+)"|'([^']+)'|([^\s(]+))/i);
+        if (createView) {
+            const viewName = createView[1] || createView[2] || createView[3] || createView[4];
+            return `DROP VIEW IF EXISTS ${viewName}`;
+        }
+
+        const createTrigger = normalized.match(/^CREATE\s+TRIGGER\s+(?:`([^`]+)`|"([^"]+)"|'([^']+)'|([^\s]+))/i);
+        if (createTrigger) {
+            const triggerName = createTrigger[1] || createTrigger[2] || createTrigger[3] || createTrigger[4];
+            const tableMatch = normalized.match(/\bON\s+(?:ONLY\s+)?(?:`([^`]+)`|"([^"]+)"|'([^']+)'|([^\s(]+))/i);
+            const tableName = tableMatch ? (tableMatch[1] || tableMatch[2] || tableMatch[3] || tableMatch[4]) : null;
+            if (tableName) {
+                return `DROP TRIGGER IF EXISTS ${triggerName} ON ${tableName}`;
+            }
+            return `DROP TRIGGER IF EXISTS ${triggerName}`;
+        }
+
+        const createIndex = normalized.match(/^CREATE\s+(UNIQUE\s+)?INDEX\s+(?:CONCURRENTLY\s+)?(?:IF\s+NOT\s+EXISTS\s+)?(?:`([^`]+)`|"([^"]+)"|'([^']+)'|([^\s]+))/i);
+        if (createIndex) {
+            const indexName = createIndex[2] || createIndex[3] || createIndex[4] || createIndex[5];
+            const tableMatch = normalized.match(/\bON\s+(?:ONLY\s+)?(?:`([^`]+)`|"([^"]+)"|'([^']+)'|([^\s(]+))/i);
+            const tableName = tableMatch ? (tableMatch[1] || tableMatch[2] || tableMatch[3] || tableMatch[4]) : null;
+
+            if (driver === 'mysql' || driver === 'mariadb') {
+                if (tableName) {
+                    return `DROP INDEX ${indexName} ON ${tableName}`;
+                }
+            }
+
+            return `DROP INDEX IF EXISTS ${indexName}`;
+        }
+
+        return null;
     }
 
     static generateColumns(columns, foreignKeys = [], indexes = [], options = {}, morphBases = null) {
@@ -141,28 +337,24 @@ class ${className} extends Migration
         indexes.forEach(idx => {
             const upperIdx = idx.toUpperCase();
             if (upperIdx.includes('UNIQUE')) {
-                const match = idx.match(/UNIQUE\s+(?:(?:KEY|INDEX)\s+)?(?:`([^`]+)`|"([^"]+)"|'([^']+)'|(\w+))\s*\(([^)]+)\)/i);
-                if (match) {
-                    const columns = match[5].split(',').map(c => c.trim().replace(/[`"']/g, ''));
-                    if (columns.length === 1) singleColumnUnique.add(columns[0]);
+                const parsed = this.parseIndexDefinition(idx, 'unique');
+                if (parsed) {
+                    if (parsed.columns.length === 1) singleColumnUnique.add(parsed.columns[0]);
                 }
             } else if (upperIdx.includes('FULLTEXT')) {
-                const match = idx.match(/FULLTEXT\s+(?:(?:KEY|INDEX)\s+)?(?:`([^`]+)`|"([^"]+)"|'([^']+)'|(\w+))\s*\(([^)]+)\)/i);
-                if (match) {
-                    const columns = match[5].split(',').map(c => c.trim().replace(/[`"']/g, ''));
-                    if (columns.length === 1) fullTextColumns.add(columns[0]);
+                const parsed = this.parseIndexDefinition(idx, 'fulltext');
+                if (parsed) {
+                    if (parsed.columns.length === 1) fullTextColumns.add(parsed.columns[0]);
                 }
             } else if (upperIdx.includes('SPATIAL')) {
-                const match = idx.match(/SPATIAL\s+(?:(?:KEY|INDEX)\s+)?(?:`([^`]+)`|"([^"]+)"|'([^']+)'|(\w+))\s*\(([^)]+)\)/i);
-                if (match) {
-                    const columns = match[5].split(',').map(c => c.trim().replace(/[`"']/g, ''));
-                    if (columns.length === 1) spatialIndexColumns.add(columns[0]);
+                const parsed = this.parseIndexDefinition(idx, 'spatial');
+                if (parsed) {
+                    if (parsed.columns.length === 1) spatialIndexColumns.add(parsed.columns[0]);
                 }
             } else if ((upperIdx.includes('KEY') || upperIdx.includes('INDEX')) && !upperIdx.includes('PRIMARY') && !upperIdx.includes('FOREIGN')) {
-                const match = idx.match(/(?:KEY|INDEX)\s+(?:`([^`]+)`|"([^"]+)"|'([^']+)'|(\w+))\s*\(([^)]+)\)/i);
-                if (match) {
-                    const columns = match[5].split(',').map(c => c.trim().replace(/[`"']/g, ''));
-                    if (columns.length === 1) singleColumnIndex.add(columns[0]);
+                const parsed = this.parseIndexDefinition(idx, 'index');
+                if (parsed) {
+                    if (parsed.columns.length === 1) singleColumnIndex.add(parsed.columns[0]);
                 }
             }
         });
@@ -203,7 +395,7 @@ class ${className} extends Migration
             const nullableMorphBase = Array.from(nullableMorphs).find(base => columnName === `${base}_id` || columnName === `${base}_type`);
             if (morphBase) {
                 if (columnName.endsWith('_id')) {
-                    const type = columns[`${morphBase}_id`].type.toLowerCase();
+                    const type = this.getMorphColumnHelperType(columns[`${morphBase}_id`]);
                     let morphType = 'morphs';
                     if (type === 'uuid') morphType = 'uuidMorphs';
                     else if (type === 'ulid') morphType = 'ulidMorphs';
@@ -214,7 +406,7 @@ class ${className} extends Migration
             }
             if (nullableMorphBase) {
                 if (columnName.endsWith('_id')) {
-                    const type = columns[`${nullableMorphBase}_id`].type.toLowerCase();
+                    const type = this.getMorphColumnHelperType(columns[`${nullableMorphBase}_id`]);
                     let morphType = 'nullableMorphs';
                     if (type === 'uuid') morphType = 'nullableUuidMorphs';
                     else if (type === 'ulid') morphType = 'nullableUlidMorphs';
@@ -241,10 +433,15 @@ class ${className} extends Migration
 
         // Add standard timestamps
         if (hasCreatedAt && hasUpdatedAt) {
-            if ((isTzTimestamp('created_at') || isTzTimestamp('updated_at')) && version >= 11) {
+            if (isTzTimestamp('created_at') && isTzTimestamp('updated_at') && version >= 11) {
                 columnStatements.push('$table->timestampsTz();');
-            } else {
+            } else if (!isTzTimestamp('created_at') && !isTzTimestamp('updated_at')) {
                 columnStatements.push('$table->timestamps();');
+            } else {
+                const createdHelper = (isTzTimestamp('created_at') && version >= 11) ? 'timestampTz' : 'timestamp';
+                const updatedHelper = (isTzTimestamp('updated_at') && version >= 11) ? 'timestampTz' : 'timestamp';
+                columnStatements.push(`$table->${createdHelper}('created_at')->nullable();`);
+                columnStatements.push(`$table->${updatedHelper}('updated_at')->nullable();`);
             }
         } else {
             if (hasCreatedAt) {
@@ -288,22 +485,17 @@ class ${className} extends Migration
 
         // Handle auto-increment columns that are not the primary key 'id'
         if (columnData.autoIncrement) {
-            if (type === 'bigint') {
+            if (type === 'bigint' || type === 'bigserial') {
                 return `$table->bigIncrements('${escapedColumn}');`;
+            }
+            if (type === 'smallserial') {
+                return `$table->smallIncrements('${escapedColumn}');`;
             }
             return `$table->increments('${escapedColumn}');`;
         }
 
-        let isForeignKeyCandidate = false;
-        const lowerCol = escapedColumn.toLowerCase();
-        if (!fkInfo && (lowerCol.endsWith('_id') || lowerCol.endsWith('_uuid') || lowerCol.endsWith('_ulid'))) {
-            if (type === 'bigint' && columnData.unsigned) isForeignKeyCandidate = true;
-            if (type === 'uuid' || type === 'ulid') isForeignKeyCandidate = true;
-            if (type === 'char' && (columnData.length === 36 || columnData.length === 26)) isForeignKeyCandidate = true;
-        }
-
         // Handle Foreign Keys (Modern Shorthand)
-        if (fkInfo || isForeignKeyCandidate) {
+        if (fkInfo) {
             const isUuid = type === 'uuid' || (type === 'char' && columnData.length === 36);
             const isUlid = type === 'ulid' || (type === 'char' && columnData.length === 26);
 
@@ -331,10 +523,22 @@ class ${className} extends Migration
                 const tableWithoutS = fkInfo.table.replace(/s$/, '');
                 const expectedColumnName = `${tableWithoutS}_id`;
                 const followsConvention = (columnName === expectedColumnName && fkInfo.column === 'id');
-                if (followsConvention) {
+                const hasDefaultConstraintName = this.isDefaultForeignKeyConstraintName(
+                    options.tableName,
+                    columnName,
+                    fkInfo.constraintName
+                );
+                if (followsConvention && (!fkInfo.constraintName || hasDefaultConstraintName)) {
                     columnCode += '->constrained()';
                 } else {
-                    columnCode += `->constrained('${this.escapePhpString(fkInfo.table)}'${fkInfo.column !== 'id' ? `, '${this.escapePhpString(fkInfo.column)}'` : ''})`;
+                    const constrainedArgs = [`'${this.escapePhpString(fkInfo.table)}'`];
+                    if (fkInfo.column !== 'id' || (fkInfo.constraintName && !hasDefaultConstraintName)) {
+                        constrainedArgs.push(`'${this.escapePhpString(fkInfo.column)}'`);
+                    }
+                    if (fkInfo.constraintName && !hasDefaultConstraintName) {
+                        constrainedArgs.push(`'${this.escapePhpString(fkInfo.constraintName)}'`);
+                    }
+                    columnCode += `->constrained(${constrainedArgs.join(', ')})`;
                 }
 
                 if (fkInfo.onDelete) {
@@ -394,7 +598,9 @@ class ${className} extends Migration
             case 'decimal':
                 const precision = Array.isArray(columnData.length) ? columnData.length[0] : 8;
                 const scale = Array.isArray(columnData.length) ? columnData.length[1] : 2;
-                columnCode = `$table->decimal('${escapedColumn}', ${precision}, ${scale})`;
+                columnCode = columnData.unsigned
+                    ? `$table->unsignedDecimal('${escapedColumn}', ${precision}, ${scale})`
+                    : `$table->decimal('${escapedColumn}', ${precision}, ${scale})`;
                 break;
             case 'float':
                 columnCode = `$table->float('${escapedColumn}')`;
@@ -405,19 +611,27 @@ class ${className} extends Migration
                 break;
             case 'varchar':
             case 'character varying':
-                if (columnName === 'ip_address' || columnName === 'ip') {
+                if (columnName === 'remember_token') {
+                    return `$table->rememberToken();`;
+                } else if (columnName === 'ip_address' || columnName === 'ip') {
                     columnCode = `$table->ipAddress('${escapedColumn}')`;
                 } else if (columnName === 'mac_address' || columnName === 'mac') {
                     columnCode = `$table->macAddress('${escapedColumn}')`;
                 } else {
                     const length = columnData.length || 255;
-                    columnCode = `$table->string('${escapedColumn}', ${length})`;
+                    columnCode = length === 255
+                        ? `$table->string('${escapedColumn}')`
+                        : `$table->string('${escapedColumn}', ${length})`;
                 }
                 break;
             case 'char':
             case 'character':
-                if (columnData.length === 26 && (columnName.toLowerCase().includes('ulid') || columnName.endsWith('_id'))) {
+                if (columnData.length === 36 && (columnName.toLowerCase().includes('uuid') || columnName.endsWith('_id') || isPrimary)) {
+                    columnCode = `$table->uuid('${escapedColumn}')`;
+                    if (isPrimary) columnCode += '->primary()';
+                } else if (columnData.length === 26 && (columnName.toLowerCase().includes('ulid') || columnName.endsWith('_id') || isPrimary)) {
                     columnCode = `$table->ulid('${escapedColumn}')`;
+                    if (isPrimary) columnCode += '->primary()';
                 } else {
                     const charLength = columnData.length || 255;
                     columnCode = `$table->char('${escapedColumn}', ${charLength})`;
@@ -502,7 +716,9 @@ class ${className} extends Migration
             case 'tinyblob':
             case 'binary':
             case 'blob':
-                columnCode = `$table->binary('${escapedColumn}')`;
+                columnCode = columnData.length
+                    ? `$table->binary('${escapedColumn}', ${columnData.length})`
+                    : `$table->binary('${escapedColumn}')`;
                 break;
             case 'ipaddress':
             case 'inet':
@@ -580,7 +796,10 @@ class ${className} extends Migration
         }
 
         // Add modifiers
-        if (columnData.unsigned && !/^.*unsigned.*Integer/.test(columnCode) && !columnData.autoIncrement) {
+        if (columnData.unsigned &&
+            !/^.*unsigned.*Integer/.test(columnCode) &&
+            !columnCode.includes('unsignedDecimal') &&
+            !columnData.autoIncrement) {
             columnCode += '->unsigned()';
         }
 
@@ -602,9 +821,9 @@ class ${className} extends Migration
             columnCode += '->primary()';
         }
 
-        if (columnData.generatedAs) {
+        if (columnData.identityGeneration) {
             columnCode += `->generatedAs()`;
-            if (columnData.generatedAs === 'always') {
+            if (columnData.identityGeneration === 'always') {
                 columnCode += `->always()`;
             }
         }
@@ -731,7 +950,10 @@ class ${className} extends Migration
                 if (pkColumns.length === 1) {
                     const colName = pkColumns[0];
                     const colData = columns[colName];
-                    const isIdCandidate = colData && (colData.autoIncrement || colData.type.toLowerCase() === 'bigint' || colData.type.toLowerCase() === 'int' || colData.type.toLowerCase() === 'integer');
+                    const isIdCandidate = colData && (
+                        colData.autoIncrement ||
+                        ['bigint', 'int', 'integer', 'serial', 'bigserial', 'smallserial'].includes(colData.type.toLowerCase())
+                    );
                     
                     if (modern && isIdCandidate) {
                         // Already handled by $table->id()
@@ -753,11 +975,9 @@ class ${className} extends Migration
         // Process unique keys
         indexes.filter(idx => idx.toUpperCase().includes('UNIQUE'))
             .forEach(idx => {
-                const match = idx.match(/UNIQUE\s+(?:(?:KEY|INDEX)\s+)?(?:`([^`]+)`|"([^"]+)"|'([^']+)'|(\w+))\s*\(([^)]+)\)/i);
-                if (match) {
-                    const indexName = match[1] || match[2] || match[3] || match[4];
-                    const idxColumns = match[5].split(',')
-                        .map(col => col.trim().replace(/^`|`$/g, '').replace(/^"|"$/g, '').replace(/^'|'$/g, ''));
+                const parsed = this.parseIndexDefinition(idx, 'unique');
+                if (parsed) {
+                    const { indexName, columns: idxColumns } = parsed;
 
                     if (modern && idxColumns.length === 1) {
                         // Already handled inline
@@ -765,10 +985,14 @@ class ${className} extends Migration
                         // Handled by morphs()
                     } else {
                         if (idxColumns.length === 1) {
-                            indexStatements.push(`$table->unique('${this.escapePhpString(idxColumns[0])}', '${this.escapePhpString(indexName)}');`);
+                            const args = [`'${this.escapePhpString(idxColumns[0])}'`];
+                            if (indexName) args.push(`'${this.escapePhpString(indexName)}'`);
+                            indexStatements.push(`$table->unique(${args.join(', ')});`);
                         } else {
                             const columnList = idxColumns.map(col => `'${this.escapePhpString(col)}'`).join(', ');
-                            indexStatements.push(`$table->unique([${columnList}], '${this.escapePhpString(indexName)}');`);
+                            const args = [`[${columnList}]`];
+                            if (indexName) args.push(`'${this.escapePhpString(indexName)}'`);
+                            indexStatements.push(`$table->unique(${args.join(', ')});`);
                         }
                     }
                 }
@@ -777,17 +1001,17 @@ class ${className} extends Migration
         // Process fulltext keys
         indexes.filter(idx => idx.toUpperCase().includes('FULLTEXT'))
             .forEach(idx => {
-                const match = idx.match(/FULLTEXT\s+(?:(?:KEY|INDEX)\s+)?(?:`([^`]+)`|"([^"]+)"|'([^']+)'|(\w+))\s*\(([^)]+)\)/i);
-                if (match) {
-                    const indexName = match[1] || match[2] || match[3] || match[4];
-                    const idxColumns = match[5].split(',')
-                        .map(col => col.trim().replace(/^`|`$/g, '').replace(/^"|"$/g, '').replace(/^'|'$/g, ''));
+                const parsed = this.parseIndexDefinition(idx, 'fulltext');
+                if (parsed) {
+                    const { indexName, columns: idxColumns } = parsed;
 
                     if (modern && idxColumns.length === 1) {
                         // Already handled inline
                     } else {
                         const columnList = idxColumns.length === 1 ? `'${this.escapePhpString(idxColumns[0])}'` : `[${idxColumns.map(c => `'${this.escapePhpString(c)}'`).join(', ')}]`;
-                        indexStatements.push(`$table->fullText(${columnList}, '${this.escapePhpString(indexName)}');`);
+                        const args = [columnList];
+                        if (indexName) args.push(`'${this.escapePhpString(indexName)}'`);
+                        indexStatements.push(`$table->fullText(${args.join(', ')});`);
                     }
                 }
             });
@@ -795,17 +1019,17 @@ class ${className} extends Migration
         // Process spatial indexes
         indexes.filter(idx => idx.toUpperCase().includes('SPATIAL'))
             .forEach(idx => {
-                const match = idx.match(/SPATIAL\s+(?:(?:KEY|INDEX)\s+)?(?:`([^`]+)`|"([^"]+)"|'([^']+)'|(\w+))\s*\(([^)]+)\)/i);
-                if (match) {
-                    const indexName = match[1] || match[2] || match[3] || match[4];
-                    const idxColumns = match[5].split(',')
-                        .map(col => col.trim().replace(/^`|`$/g, '').replace(/^"|"$/g, '').replace(/^'|'$/g, ''));
+                const parsed = this.parseIndexDefinition(idx, 'spatial');
+                if (parsed) {
+                    const { indexName, columns: idxColumns } = parsed;
 
                     if (modern && idxColumns.length === 1) {
                         // Already handled inline
                     } else {
                         const columnList = idxColumns.length === 1 ? `'${this.escapePhpString(idxColumns[0])}'` : `[${idxColumns.map(c => `'${this.escapePhpString(c)}'`).join(', ')}]`;
-                        indexStatements.push(`$table->spatialIndex(${columnList}, '${this.escapePhpString(indexName)}');`);
+                        const args = [columnList];
+                        if (indexName) args.push(`'${this.escapePhpString(indexName)}'`);
+                        indexStatements.push(`$table->spatialIndex(${args.join(', ')});`);
                     }
                 }
             });
@@ -908,6 +1132,11 @@ class ${className} extends Migration
             .replace(/\s+ON\s+(?:DELETE|UPDATE)[\s\S]*$/i, '')
             .trim()
             .toLowerCase();
+    }
+
+    static isDefaultForeignKeyConstraintName(tableName, columnName, constraintName) {
+        if (!tableName || !columnName || !constraintName) return false;
+        return `${tableName}_${columnName}_foreign` === constraintName;
     }
 
     static escapePhpString(value) {

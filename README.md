@@ -25,6 +25,26 @@ A premium, privacy-first, client-side tool designed to transform raw SQL databas
 - **Web Workers**: Background processing for massive SQL files without freezing the UI.
 - **JSZip Integration**: Batch export your entire database structure as a ready-to-use Laravel ZIP suite.
 
+## 📁 Project Structure
+
+- Root: static entry files such as [index.html](/home/shreesoftech/projects/sql-to-laravel.vercel.app/index.html), [style.css](/home/shreesoftech/projects/sql-to-laravel.vercel.app/style.css), and [README.md](/home/shreesoftech/projects/sql-to-laravel.vercel.app/README.md).
+- [js](/home/shreesoftech/projects/sql-to-laravel.vercel.app/js): runtime application files such as [js/SQLParser.js](/home/shreesoftech/projects/sql-to-laravel.vercel.app/js/SQLParser.js), [js/MigrationGenerator.js](/home/shreesoftech/projects/sql-to-laravel.vercel.app/js/MigrationGenerator.js), [js/SeederGenerator.js](/home/shreesoftech/projects/sql-to-laravel.vercel.app/js/SeederGenerator.js), [js/script.js](/home/shreesoftech/projects/sql-to-laravel.vercel.app/js/script.js), and [js/SQLProcessorWorker.js](/home/shreesoftech/projects/sql-to-laravel.vercel.app/js/SQLProcessorWorker.js).
+- [tests](/home/shreesoftech/projects/sql-to-laravel.vercel.app/tests): all fixtures, deterministic verification scripts, and fuzz suites.
+- [tests/fixtures](/home/shreesoftech/projects/sql-to-laravel.vercel.app/tests/fixtures): vendor-specific and edge-case SQL inputs.
+
+## ✅ Tests
+
+Run the verification and fuzz suites from the project root:
+
+```bash
+node tests/verify-fixture.js
+node tests/verify-vendor-fixtures.js
+node tests/fuzz-fixtures.js
+node tests/fuzz-vendor-mutations.js
+node tests/fuzz-create-index-statements.js
+node tests/fuzz-partial-indexes.js
+```
+
 ## 📖 Usage
 
 1. **Upload**: Drag and drop one or more `.sql` files.

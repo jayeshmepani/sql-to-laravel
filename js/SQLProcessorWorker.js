@@ -28,10 +28,15 @@ self.onmessage = event => {
             self.postMessage({ type: 'progress', progress: 75, message: 'Generating migrations...' });
             
             for (const [tableName, tableData] of Object.entries(parsed.tables)) {
-                const migration = MigrationGenerator.generate(tableName, tableData, options);
+                const migration = MigrationGenerator.generate(tableName, tableData, { ...options, includeRawStatements: false });
                 if (migration) {
                     self.postMessage({ type: 'migration-item', tableName, content: migration });
                 }
+            }
+
+            const auxiliaryMigration = MigrationGenerator.generateAuxiliaryMigration(parsed, options);
+            if (auxiliaryMigration) {
+                self.postMessage({ type: 'auxiliary-item', tableName: '__auxiliary__', content: auxiliaryMigration });
             }
         }
 
