@@ -1157,6 +1157,7 @@ pre {
 .custom-select::picker(select) {
     scrollbar-width: thin;
     scrollbar-color: var(--color-primary) transparent;
+    min-height: min(25rem, 50%);
 }
 
 .custom-select::picker(select)::-webkit-scrollbar {
