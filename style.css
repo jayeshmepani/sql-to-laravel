@@ -996,7 +996,7 @@ pre {
     &::picker(select) {
         scrollbar-width: thin;
         scrollbar-color: var(--color-primary) transparent;
-        min-height: min(25rem, 50%);
+        min-height: fit-content;
 
         &::-webkit-scrollbar {
             width: 6px;
@@ -1006,6 +1006,10 @@ pre {
             background: var(--color-primary);
             border-radius: 100px;
         }
+    }
+
+    &#migrationSelect::picker(select) {
+        min-height: min(25rem, 50%);
     }
 }
 
